@@ -1,0 +1,2716 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"
+    />
+    <title>Moss &amp; Marrow — Voxel Garden</title>
+    <style>
+      :root {
+        --ink: #173f35;
+        --pine: #14543e;
+        --paper: #fff9e9;
+        --gold: #f5bf4f;
+        --line: rgba(22, 67, 52, 0.18);
+        --shadow: rgba(22, 53, 42, 0.2);
+      }
+      * {
+        box-sizing: border-box;
+        -webkit-tap-highlight-color: transparent;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+        background: #d7dbec;
+        color: var(--ink);
+        font-family: ui-rounded, "Arial Rounded MT Bold", system-ui, sans-serif;
+      }
+      button {
+        font: inherit;
+        color: inherit;
+      }
+      #app {
+        position: fixed;
+        inset: 0;
+        overflow: hidden;
+        background: #d8d9ef;
+      }
+      #world {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        display: block;
+        touch-action: none;
+        outline: 0;
+      }
+      .glass {
+        background: rgba(255, 249, 233, 0.92);
+        border: 1px solid rgba(255, 255, 255, 0.86);
+        box-shadow: 0 8px 28px var(--shadow);
+        backdrop-filter: blur(13px);
+      }
+      .top {
+        position: absolute;
+        top: max(10px, env(safe-area-inset-top));
+        left: max(10px, env(safe-area-inset-left));
+        right: max(10px, env(safe-area-inset-right));
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        pointer-events: none;
+      }
+      .brand,
+      .modes,
+      .actions {
+        pointer-events: auto;
+        border-radius: 18px;
+      }
+      .brand {
+        height: 54px;
+        padding: 7px 13px 7px 8px;
+        display: flex;
+        align-items: center;
+        gap: 9px;
+      }
+      .logo {
+        width: 40px;
+        height: 40px;
+        border-radius: 12px;
+        display: grid;
+        place-items: center;
+        background: var(--pine);
+        font-size: 22px;
+      }
+      .brand b {
+        display: block;
+        font:
+          700 18px/1 Georgia,
+          serif;
+      }
+      .brand small {
+        font-size: 9px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: #687d71;
+      }
+      .modes,
+      .actions {
+        display: flex;
+        padding: 5px;
+        gap: 3px;
+      }
+      .actions {
+        margin-left: auto;
+      }
+      .mode,
+      .action {
+        height: 44px;
+        border: 0;
+        border-radius: 13px;
+        background: transparent;
+        font-weight: 850;
+        font-size: 13px;
+        padding: 0 13px;
+      }
+      .mode[aria-pressed="true"] {
+        background: var(--pine);
+        color: white;
+      }
+      .action {
+        min-width: 47px;
+        padding: 3px 8px;
+      }
+      .action span {
+        display: block;
+        font-size: 18px;
+        line-height: 1;
+      }
+      .action small {
+        font-size: 9px;
+      }
+      .action:disabled {
+        opacity: 0.32;
+      }
+      .action:hover {
+        background: white;
+      }
+      .environment {
+        position: absolute;
+        top: 75px;
+        left: max(12px, env(safe-area-inset-left));
+        display: flex;
+        gap: 6px;
+      }
+      .envset {
+        display: flex;
+        gap: 2px;
+        padding: 4px;
+        border-radius: 15px;
+      }
+      .env {
+        height: 43px;
+        min-width: 47px;
+        padding: 3px 6px;
+        border: 0;
+        border-radius: 11px;
+        background: transparent;
+        font-size: 10px;
+        font-weight: 850;
+      }
+      .env span {
+        display: block;
+        font-size: 18px;
+      }
+      .env[aria-pressed="true"] {
+        background: white;
+        box-shadow: 0 2px 8px rgba(20, 60, 45, 0.14);
+      }
+      .save {
+        position: absolute;
+        right: 16px;
+        top: 76px;
+        border-radius: 20px;
+        padding: 6px 10px;
+        background: rgba(20, 70, 52, 0.78);
+        color: white;
+        font-size: 10px;
+      }
+      .save.bad {
+        background: #a3503d;
+      }
+      .bottom {
+        position: absolute;
+        z-index: 4;
+        left: 50%;
+        bottom: max(10px, env(safe-area-inset-bottom));
+        transform: translateX(-50%);
+        width: min(980px, calc(100% - 20px));
+        pointer-events: none;
+      }
+      .caption {
+        width: max-content;
+        max-width: 100%;
+        margin: 0 auto 7px;
+        padding: 7px 13px;
+        border-radius: 99px;
+        background: rgba(18, 66, 49, 0.91);
+        color: white;
+        text-align: center;
+        font-size: 12px;
+        font-weight: 800;
+      }
+      .tray,
+      .subtray {
+        pointer-events: auto;
+        display: flex;
+        gap: 8px;
+        padding: 9px;
+        border-radius: 21px;
+        overflow-x: auto;
+        overscroll-behavior: contain;
+        scrollbar-width: none;
+      }
+      .tray::-webkit-scrollbar,
+      .subtray::-webkit-scrollbar {
+        display: none;
+      }
+      .subtray {
+        display: none;
+        position: absolute;
+        left: 50%;
+        bottom: 88px;
+        transform: translateX(-50%);
+        max-width: min(700px, calc(100vw - 24px));
+      }
+      .subtray.open {
+        display: flex;
+      }
+      .choice {
+        flex: 0 0 77px;
+        height: 68px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: #fffdf4;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 3px;
+        font-size: 10px;
+        font-weight: 850;
+      }
+      .choice i {
+        font-style: normal;
+        font-size: 24px;
+        line-height: 1;
+      }
+      .choice[aria-pressed="true"] {
+        background: var(--gold);
+        border-color: #b88128;
+        box-shadow: 0 5px 0 #c48a29;
+        transform: translateY(-2px);
+      }
+      .card {
+        position: absolute;
+        right: 14px;
+        top: 133px;
+        width: 230px;
+        min-height: 100px;
+        padding: 14px;
+        border-radius: 18px;
+        transition: 0.2s;
+        pointer-events: none;
+      }
+      .card.hidden {
+        opacity: 0;
+        transform: translateX(12px);
+      }
+      .card h2 {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0;
+        font:
+          700 18px Georgia,
+          serif;
+      }
+      .card h2 span {
+        font-size: 27px;
+      }
+      .stage {
+        margin: 7px 0 5px;
+        font-size: 12px;
+        font-weight: 850;
+        color: #34705b;
+      }
+      .message {
+        font-size: 12px;
+        line-height: 1.4;
+        color: #526d61;
+      }
+      .fast {
+        position: absolute;
+        left: 14px;
+        bottom: 104px;
+        padding: 7px 10px;
+        border-radius: 12px;
+        background: rgba(255, 249, 233, 0.82);
+        font-size: 10px;
+        font-weight: 750;
+      }
+      .toast {
+        position: absolute;
+        top: 135px;
+        left: 50%;
+        transform: translate(-50%, -8px);
+        opacity: 0;
+        padding: 10px 16px;
+        border-radius: 99px;
+        background: rgba(16, 59, 43, 0.92);
+        color: white;
+        font-size: 13px;
+        font-weight: 800;
+        transition: 0.2s;
+        pointer-events: none;
+      }
+      .toast.show {
+        opacity: 1;
+        transform: translate(-50%, 0);
+      }
+      .error {
+        position: absolute;
+        inset: 0;
+        display: none;
+        place-items: center;
+        background: #e5dfd5;
+        padding: 24px;
+        text-align: center;
+      }
+      .error div {
+        max-width: 440px;
+        padding: 25px;
+        border-radius: 20px;
+        background: var(--paper);
+      }
+      @media (max-width: 760px) {
+        .brand small {
+          display: none;
+        }
+        .brand b {
+          font-size: 15px;
+        }
+        .brand {
+          padding-right: 9px;
+        }
+        .mode {
+          padding: 0 9px;
+        }
+        .actions .action {
+          min-width: 45px;
+        }
+        .environment {
+          top: 70px;
+        }
+        .env {
+          min-width: 42px;
+          font-size: 9px;
+        }
+        .card {
+          top: 122px;
+          right: 8px;
+          width: 195px;
+        }
+        .choice {
+          flex-basis: 70px;
+        }
+        .fast {
+          display: none;
+        }
+      }
+      @media (max-width: 520px) {
+        .brand {
+          display: none;
+        }
+        .top {
+          display: grid;
+          grid-template-columns: 1fr;
+          justify-items: center;
+          gap: 5px;
+        }
+        .modes,
+        .actions {
+          width: max-content;
+          max-width: 100%;
+          margin: 0;
+        }
+        .mode {
+          padding: 0 6px;
+          font-size: 11px;
+        }
+        .actions .action {
+          min-width: 44px;
+          height: 44px;
+          padding: 2px;
+        }
+        .top {
+          justify-content: space-between;
+        }
+        .environment {
+          top: 124px;
+          max-width: calc(100% - 20px);
+          overflow-x: auto;
+        }
+        .choice {
+          height: 62px;
+          flex-basis: 64px;
+        }
+        .choice i {
+          font-size: 21px;
+        }
+        .tray {
+          padding: 7px;
+        }
+        .subtray {
+          bottom: 79px;
+        }
+        .card {
+          top: 178px;
+          width: 180px;
+        }
+        .toast {
+          top: 178px;
+        }
+        .save {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <canvas
+        id="world"
+        aria-label="A three dimensional voxel garden. Drag to turn, pinch to zoom, and use two fingers to move the view."
+      ></canvas>
+      <div class="top">
+        <div class="brand glass">
+          <span class="logo">🌱</span>
+          <div>
+            <small>A little world to grow</small><b>Moss &amp; Marrow</b>
+          </div>
+        </div>
+        <div class="modes glass">
+          <button id="garden-mode" class="mode" aria-pressed="true">
+            🌻 Garden</button
+          ><button id="build-mode" class="mode" aria-pressed="false">
+            🧱 Build
+          </button>
+        </div>
+        <div class="actions glass">
+          <button id="undo" class="action" disabled>
+            <span>↶</span><small>Undo</small></button
+          ><button id="delete" class="action" disabled>
+            <span>🗑️</span><small>Delete</small></button
+          ><button id="home" class="action">
+            <span>🏡</span><small>Home</small></button
+          ><button id="zoom-out" class="action" aria-label="Zoom out">
+            <span>−</span><small>Zoom</small></button
+          ><button id="zoom-in" class="action" aria-label="Zoom in">
+            <span>＋</span><small>Zoom</small></button
+          ><button id="sound" class="action" aria-pressed="false">
+            <span>🔇</span><small>Sound</small>
+          </button>
+        </div>
+      </div>
+      <div class="environment">
+        <div id="seasons" class="envset glass">
+          <button class="env" data-season="spring" aria-pressed="true">
+            <span>🌸</span>Spring</button
+          ><button class="env" data-season="summer">
+            <span>☀️</span>Summer</button
+          ><button class="env" data-season="autumn">
+            <span>🍂</span>Autumn</button
+          ><button class="env" data-season="winter">
+            <span>❄️</span>Winter
+          </button>
+        </div>
+        <div id="weather" class="envset glass">
+          <button class="env" data-weather="sun" aria-pressed="true">
+            <span>🌤️</span>Sunny</button
+          ><button class="env" data-weather="rain"><span>🌧️</span>Rain</button>
+        </div>
+      </div>
+      <div id="save" class="save">● saved</div>
+      <section id="card" class="card glass hidden">
+        <h2 id="plant-name"></h2>
+        <div id="plant-stage" class="stage"></div>
+        <div id="plant-message" class="message"></div>
+      </section>
+      <div class="fast">⏩ Fast garden: real plants take much longer.</div>
+      <div id="toast" class="toast" role="status" aria-live="polite"></div>
+      <div class="bottom">
+        <div id="caption" class="caption">
+          🌻 Choose a seed, then tap a soil bed
+        </div>
+        <div id="subtray" class="subtray glass"></div>
+        <div id="tray" class="tray glass"></div>
+      </div>
+      <div id="error" class="error">
+        <div>
+          <h2>The garden could not open</h2>
+          <p id="error-text"></p>
+        </div>
+      </div>
+    </div>
+
+    <script id="garden-model">
+      (function () {
+        "use strict";
+        const VERSION = 2,
+          STAGE_SECONDS = 25,
+          MAX_BLOCKS = 240,
+          BOUNDS = 18;
+        const BLOCK_TYPES = Object.freeze([
+          "grass",
+          "soil",
+          "stone",
+          "wood",
+          "brick",
+          "roof",
+          "glass",
+          "water",
+          "path",
+          "flowers",
+          "fence",
+        ]);
+        const TEMPLATE_TYPES = Object.freeze([
+          "raisedBed",
+          "bench",
+          "trellis",
+          "bridge",
+          "beehive",
+          "gazebo",
+        ]);
+        const SEASONS = Object.freeze(["spring", "summer", "autumn", "winter"]),
+          WEATHER = Object.freeze(["sun", "rain"]);
+        const SPECIES = Object.freeze({
+          sunflower: Object.freeze({
+            name: "Sunflower",
+            emoji: "🌻",
+            needsInsect: true,
+            final: "Seeds",
+          }),
+          tomato: Object.freeze({
+            name: "Tomato",
+            emoji: "🍅",
+            selfPollinating: true,
+            final: "Fruit",
+          }),
+          strawberry: Object.freeze({
+            name: "Strawberry",
+            emoji: "🍓",
+            needsInsect: true,
+            final: "Fruit",
+          }),
+          bean: Object.freeze({
+            name: "Bean",
+            emoji: "🫘",
+            selfPollinating: true,
+            final: "Pods",
+          }),
+          carrot: Object.freeze({
+            name: "Carrot",
+            emoji: "🥕",
+            rootCrop: true,
+            final: "Root",
+          }),
+          tulip: Object.freeze({
+            name: "Tulip",
+            emoji: "🌷",
+            flowerCrop: true,
+            final: "Flower",
+          }),
+        });
+        const STAGES = Object.freeze([
+          "Seed",
+          "Germination",
+          "Seedling",
+          "Growing plant",
+          "Bud",
+          "Flower",
+          "Pollinated flower",
+          "Fruit, vegetable or seeds",
+        ]);
+        function createState() {
+          return {
+            version: VERSION,
+            season: "spring",
+            weather: "sun",
+            sound: false,
+            elapsed: 0,
+            nextId: 1,
+            userBlocks: [],
+            templates: [],
+            plants: [],
+          };
+        }
+        function cloneState(s) {
+          return JSON.parse(JSON.stringify(s));
+        }
+        function snap(n) {
+          return Math.round(Number(n));
+        }
+        function bounded(n) {
+          return Number.isFinite(n) && Math.abs(n) <= BOUNDS;
+        }
+        const FOOTPRINT = {
+          raisedBed: [2, 2],
+          bench: [2, 1],
+          trellis: [2, 1],
+          bridge: [3, 1],
+          beehive: [1, 1],
+          gazebo: [3, 3],
+        };
+        function inFootprint(t, x, z) {
+          const f = FOOTPRINT[t.type] || [1, 1];
+          return Math.abs(x - t.x) <= f[0] && Math.abs(z - t.z) <= f[1];
+        }
+        function occupied(s, x, y, z) {
+          return (
+            s.userBlocks.some((b) => b.x === x && b.y === y && b.z === z) ||
+            s.templates.some((t) => inFootprint(t, x, z) && y <= t.y + 4)
+          );
+        }
+        function templateBlocked(s, type, x, z) {
+          const f = FOOTPRINT[type] || [1, 1];
+          if (Math.abs(x) + f[0] > BOUNDS || Math.abs(z) + f[1] > BOUNDS)
+            return true;
+          return (
+            s.userBlocks.some(
+              (b) =>
+                Math.abs(b.x - x) <= f[0] &&
+                Math.abs(b.z - z) <= f[1] &&
+                b.y <= 4,
+            ) ||
+            s.plants.some(
+              (p) => Math.abs(p.x - x) <= f[0] && Math.abs(p.z - z) <= f[1],
+            ) ||
+            s.templates.some((t) => {
+              const q = FOOTPRINT[t.type] || [1, 1];
+              return (
+                Math.abs(t.x - x) <= q[0] + f[0] &&
+                Math.abs(t.z - z) <= q[1] + f[1]
+              );
+            })
+          );
+        }
+        function reduce(state, a) {
+          if (!state || !a) return { state, changed: false };
+          let s, x, y, z, id;
+          if (a.type === "placeBlock") {
+            x = snap(a.x);
+            y = snap(a.y);
+            z = snap(a.z);
+            if (
+              !BLOCK_TYPES.includes(a.blockType) ||
+              !bounded(x) ||
+              !bounded(z) ||
+              !Number.isInteger(y) ||
+              y < 0 ||
+              y > 12 ||
+              state.userBlocks.length >= MAX_BLOCKS ||
+              occupied(state, x, y, z)
+            )
+              return { state, changed: false };
+            s = cloneState(state);
+            s.userBlocks.push({ id: s.nextId++, type: a.blockType, x, y, z });
+            return { state: s, changed: true };
+          }
+          if (a.type === "placeTemplate") {
+            x = snap(a.x);
+            z = snap(a.z);
+            y = Math.max(0, snap(a.y || 0));
+            if (
+              !TEMPLATE_TYPES.includes(a.templateType) ||
+              !bounded(x) ||
+              !bounded(z) ||
+              state.templates.length >= 40 ||
+              templateBlocked(state, a.templateType, x, z)
+            )
+              return { state, changed: false };
+            s = cloneState(state);
+            s.templates.push({
+              id: s.nextId++,
+              type: a.templateType,
+              x,
+              y,
+              z,
+              rotation: snap(a.rotation || 0) % 4,
+            });
+            return { state: s, changed: true };
+          }
+          if (a.type === "deleteObject") {
+            id = Number(a.id);
+            const block = state.userBlocks.find((o) => o.id === id),
+              tpl = state.templates.find((o) => o.id === id);
+            if (
+              !Number.isInteger(id) ||
+              ![...state.userBlocks, ...state.templates, ...state.plants].some(
+                (o) => o.id === id,
+              )
+            )
+              return { state, changed: false };
+            s = cloneState(state);
+            s.userBlocks = s.userBlocks.filter((o) => o.id !== id);
+            s.templates = s.templates.filter((o) => o.id !== id);
+            s.plants = s.plants.filter(
+              (o) =>
+                o.id !== id &&
+                !(
+                  block &&
+                  block.type === "soil" &&
+                  o.x === block.x &&
+                  o.z === block.z &&
+                  o.y === block.y + 1
+                ) &&
+                !(
+                  tpl &&
+                  tpl.type === "raisedBed" &&
+                  inFootprint(tpl, o.x, o.z) &&
+                  o.y === tpl.y + 1
+                ),
+            );
+            return { state: s, changed: true };
+          }
+          if (a.type === "plant") {
+            x = snap(a.x);
+            z = snap(a.z);
+            y = Math.max(0, snap(a.y || 0));
+            if (
+              !SPECIES[a.species] ||
+              !bounded(x) ||
+              !bounded(z) ||
+              state.plants.length >= 100 ||
+              state.plants.some((p) => p.x === x && p.z === z)
+            )
+              return { state, changed: false };
+            s = cloneState(state);
+            s.plants.push({
+              id: s.nextId++,
+              species: a.species,
+              x,
+              y,
+              z,
+              stage: 0,
+              progress: 0,
+              moisture: 0,
+              pollinated: false,
+            });
+            return { state: s, changed: true };
+          }
+          if (a.type === "waterPlant") {
+            id = Number(a.id);
+            const p = state.plants.find((q) => q.id === id);
+            if (!p || p.moisture >= 0.98) return { state, changed: false };
+            s = cloneState(state);
+            s.plants.find((q) => q.id === id).moisture = 1;
+            return { state: s, changed: true };
+          }
+          if (a.type === "pollinate") {
+            id = Number(a.id);
+            const p = state.plants.find((q) => q.id === id);
+            if (!p || p.pollinated) return { state, changed: false };
+            s = cloneState(state);
+            s.plants.find((q) => q.id === id).pollinated = true;
+            return { state: s, changed: true };
+          }
+          if (a.type === "setSeason") {
+            if (!SEASONS.includes(a.season) || state.season === a.season)
+              return { state, changed: false };
+            s = cloneState(state);
+            s.season = a.season;
+            return { state: s, changed: true };
+          }
+          if (a.type === "setWeather") {
+            if (!WEATHER.includes(a.weather) || state.weather === a.weather)
+              return { state, changed: false };
+            s = cloneState(state);
+            s.weather = a.weather;
+            return { state: s, changed: true };
+          }
+          if (a.type === "setSound") {
+            if (typeof a.sound !== "boolean" || state.sound === a.sound)
+              return { state, changed: false };
+            s = cloneState(state);
+            s.sound = a.sound;
+            return { state: s, changed: true };
+          }
+          return { state, changed: false };
+        }
+        function update(state, seconds) {
+          const dt = Math.max(0, Math.min(240, Number(seconds) || 0));
+          if (!dt) return state;
+          const s = cloneState(state);
+          s.elapsed += dt;
+          s.plants.forEach((p) => {
+            const sp = SPECIES[p.species],
+              authoredRoof =
+                (Math.abs(p.x - 10) <= 2 && Math.abs(p.z + 7) <= 2) ||
+                (Math.abs(p.x - 12) <= 2 && Math.abs(p.z - 7) <= 2) ||
+                (Math.abs(p.x + 10) <= 2 && Math.abs(p.z - 7) <= 2) ||
+                (Math.abs(p.x + 11) <= 2 && Math.abs(p.z + 7) <= 2),
+              covered =
+                authoredRoof ||
+                s.userBlocks.some(
+                  (b) => b.x === p.x && b.z === p.z && b.y > p.y,
+                ) ||
+                s.templates.some(
+                  (t) => t.type === "gazebo" && inFootprint(t, p.x, p.z),
+                );
+            if (s.weather === "rain" && !covered) p.moisture = 1;
+            else p.moisture = Math.max(0, p.moisture - dt * 0.0015);
+            if (s.season === "winter" || p.moisture <= 0.08) return;
+            const next = p.progress + dt;
+            let max = STAGE_SECONDS * 7;
+            if (sp.needsInsect && !p.pollinated) {
+              if (next >= STAGE_SECONDS * 6.6) p.pollinated = true;
+              else max = STAGE_SECONDS * 6 - 0.001;
+            }
+            if (sp.flowerCrop) max = STAGE_SECONDS * 6 - 0.001;
+            p.progress = Math.min(max, next);
+            p.stage = Math.min(7, Math.floor(p.progress / STAGE_SECONDS));
+            if (sp.selfPollinating && p.stage >= 5) p.pollinated = true;
+            if (sp.rootCrop && p.stage >= 5) p.pollinated = true;
+          });
+          return s;
+        }
+        function isValidState(s) {
+          if (
+            !s ||
+            s.version !== VERSION ||
+            !SEASONS.includes(s.season) ||
+            !WEATHER.includes(s.weather) ||
+            typeof s.sound !== "boolean" ||
+            !Number.isFinite(s.elapsed) ||
+            s.elapsed < 0 ||
+            !Number.isInteger(s.nextId) ||
+            s.nextId < 1 ||
+            !Array.isArray(s.userBlocks) ||
+            !Array.isArray(s.templates) ||
+            !Array.isArray(s.plants) ||
+            s.userBlocks.length > MAX_BLOCKS ||
+            s.templates.length > 40 ||
+            s.plants.length > 100
+          )
+            return false;
+          const ids = new Set(),
+            claim = (o) =>
+              Number.isInteger(o.id) &&
+              o.id > 0 &&
+              !ids.has(o.id) &&
+              (ids.add(o.id), true);
+          if (
+            !s.userBlocks.every(
+              (b) =>
+                claim(b) &&
+                BLOCK_TYPES.includes(b.type) &&
+                Number.isInteger(b.x) &&
+                Number.isInteger(b.y) &&
+                Number.isInteger(b.z) &&
+                bounded(b.x) &&
+                bounded(b.z) &&
+                b.y >= 0 &&
+                b.y <= 12,
+            )
+          )
+            return false;
+          if (
+            !s.templates.every(
+              (t) =>
+                claim(t) &&
+                TEMPLATE_TYPES.includes(t.type) &&
+                Number.isInteger(t.x) &&
+                Number.isInteger(t.y) &&
+                Number.isInteger(t.z) &&
+                Number.isInteger(t.rotation) &&
+                t.rotation >= -3 &&
+                t.rotation <= 3 &&
+                bounded(t.x) &&
+                bounded(t.z) &&
+                t.y >= 0 &&
+                t.y <= 12,
+            )
+          )
+            return false;
+          if (
+            !s.plants.every(
+              (p) =>
+                claim(p) &&
+                SPECIES[p.species] &&
+                Number.isInteger(p.x) &&
+                Number.isInteger(p.y) &&
+                Number.isInteger(p.z) &&
+                bounded(p.x) &&
+                bounded(p.z) &&
+                p.y >= 0 &&
+                p.y <= 12 &&
+                Number.isInteger(p.stage) &&
+                p.stage >= 0 &&
+                p.stage <= 7 &&
+                Number.isFinite(p.progress) &&
+                p.progress >= 0 &&
+                Number.isFinite(p.moisture) &&
+                p.moisture >= 0 &&
+                p.moisture <= 1 &&
+                typeof p.pollinated === "boolean",
+            )
+          )
+            return false;
+          return [...ids].every((id) => id < s.nextId);
+        }
+        function loadState(raw) {
+          try {
+            const s = JSON.parse(raw);
+            return isValidState(s) ? cloneState(s) : null;
+          } catch (_) {
+            return null;
+          }
+        }
+        window.GardenModel = Object.freeze({
+          VERSION,
+          STAGE_SECONDS,
+          SPECIES,
+          STAGES,
+          BLOCK_TYPES,
+          TEMPLATE_TYPES,
+          SEASONS,
+          WEATHER,
+          createState,
+          cloneState,
+          reduce,
+          update,
+          isValidState,
+          loadState,
+        });
+      })();
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+    <script>
+      (function () {
+        "use strict";
+        const M = window.GardenModel;
+        if (!window.THREE) {
+          fail("Three.js could not load. Connect to the internet and reload.");
+          return;
+        }
+        const canvas = document.getElementById("world"),
+          scene = new THREE.Scene(),
+          renderer = new THREE.WebGLRenderer({
+            canvas,
+            antialias: true,
+            powerPreference: "high-performance",
+          });
+        renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.65));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.outputColorSpace = THREE.SRGBColorSpace;
+        const camera = new THREE.OrthographicCamera(),
+          raycaster = new THREE.Raycaster(),
+          clock = new THREE.Clock(),
+          root = new THREE.Group(),
+          staticRoot = new THREE.Group(),
+          userRoot = new THREE.Group(),
+          plantRoot = new THREE.Group(),
+          wildRoot = new THREE.Group(),
+          particleRoot = new THREE.Group();
+        scene.add(root);
+        root.add(staticRoot, userRoot, plantRoot, wildRoot, particleRoot);
+        const hemi = new THREE.HemisphereLight(0xe8efff, 0x526447, 1.65),
+          sun = new THREE.DirectionalLight(0xffdda0, 2.6);
+        scene.add(hemi, sun);
+        sun.position.set(-18, 28, 16);
+        sun.castShadow = true;
+        sun.shadow.mapSize.set(1024, 1024);
+        sun.shadow.camera.left = -28;
+        sun.shadow.camera.right = 28;
+        sun.shadow.camera.top = 24;
+        sun.shadow.camera.bottom = -24;
+        const colors = {
+            grass: 0x6ea34d,
+            soil: 0x865e3e,
+            stone: 0xcac2a7,
+            wood: 0x9a6539,
+            brick: 0xb75c49,
+            roof: 0xd46c62,
+            glass: 0xa9e5e2,
+            water: 0x42c8cd,
+            path: 0xe8d7ae,
+            flowers: 0xea6e95,
+            fence: 0xd7ad6d,
+          },
+          materials = {},
+          materialCache = new Map();
+        Object.keys(colors).forEach(
+          (k) =>
+            (materials[k] = new THREE.MeshLambertMaterial({
+              color: colors[k],
+              transparent: k === "glass" || k === "water",
+              opacity: k === "glass" ? 0.45 : k === "water" ? 0.78 : 1,
+            })),
+        );
+        materials.ghost = new THREE.MeshLambertMaterial({
+          color: 0xffe36e,
+          transparent: true,
+          opacity: 0.48,
+        });
+        const box = new THREE.BoxGeometry(1, 1, 1),
+          groundTargets = [],
+          objectMeshes = new Map(),
+          flowerTargets = [],
+          wildlife = [],
+          particles = [],
+          ripples = [],
+          birds = [],
+          fish = [],
+          leafBatches = [];
+        let water,
+          grassBatch,
+          earthBatch,
+          pathBatch,
+          lastWidth = 0,
+          lastHeight = 0,
+          lastZoom = 0;
+        function shared(color) {
+          if (!materialCache.has(color))
+            materialCache.set(color, new THREE.MeshLambertMaterial({ color }));
+          return materialCache.get(color);
+        }
+        function cube(color, size = [1, 1, 1], pos = [0, 0, 0], mat) {
+          const m = new THREE.Mesh(box, mat || shared(color));
+          m.scale.set(...size);
+          m.position.set(...pos);
+          m.castShadow = size[0] * size[1] * size[2] > 4;
+          m.receiveShadow = true;
+          return m;
+        }
+        function add(p, c, s, pos, mat) {
+          const m = cube(c, s, pos, mat);
+          p.add(m);
+          return m;
+        }
+        function rand(x, z, n = 1) {
+          const v = Math.sin(x * 12.9898 + z * 78.233 + n * 33.17) * 43758.5453;
+          return v - Math.floor(v);
+        }
+        function batch(p, c, s, poses) {
+          const im = new THREE.InstancedMesh(box, shared(c), poses.length),
+            d = new THREE.Object3D();
+          poses.forEach((v, i) => {
+            d.position.set(v[0], v[1], v[2]);
+            const instanceScale = v[4] || 1;
+            d.scale.set(
+              s[0] * instanceScale,
+              s[1] * instanceScale,
+              s[2] * instanceScale,
+            );
+            d.rotation.y = v[3] || 0;
+            d.updateMatrix();
+            im.setMatrixAt(i, d.matrix);
+          });
+          im.receiveShadow = true;
+          p.add(im);
+          return im;
+        }
+        function pond(x, z) {
+          return ((x + 1) / 6.5) ** 2 + ((z + 4) / 4.5) ** 2 < 1;
+        }
+        function path(x, z) {
+          return (
+            Math.abs(z - (Math.sin(x * 0.28) * 1.4 + 1)) < 1.05 ||
+            Math.abs(x - Math.sin(z * 0.35) * 1.2) < 1 ||
+            (x > 4 && Math.abs(z + 6) < 0.75)
+          );
+        }
+        function island() {
+          const grass = [],
+            earth = [],
+            earthDark = [],
+            paths = [],
+            tufts = [];
+          for (let x = -18; x <= 18; x++)
+            for (let z = -15; z <= 15; z++) {
+              if (
+                (Math.abs(x) > 15 && rand(x, z) < 0.1) ||
+                (Math.abs(z) > 12 && rand(x, z, 2) < 0.08)
+              )
+                continue;
+              (rand(x, z, 9) > 0.72 ? earthDark : earth).push([x, -0.75, z]);
+              if (!pond(x, z)) {
+                (path(x, z) ? paths : grass).push([x, 0.02, z]);
+                if (!path(x, z) && rand(x, z, 4) > 0.73)
+                  tufts.push([
+                    x + (rand(x, z, 5) - 0.5) * 0.5,
+                    0.47,
+                    z + (rand(x, z, 6) - 0.5) * 0.5,
+                    rand(x, z, 7) * 3,
+                  ]);
+              }
+            }
+          earthBatch = batch(staticRoot, 0x765238, [0.98, 1.5, 0.98], earth);
+          batch(staticRoot, 0x68472f, [0.98, 1.5, 0.98], earthDark);
+          grassBatch = batch(
+            staticRoot,
+            colors.grass,
+            [0.98, 0.18, 0.98],
+            grass,
+          );
+          const grassAccents = [[], [], []];
+          grass.forEach((p) => {
+            const n = Math.floor(rand(p[0], p[2], 12) * 3);
+            if (rand(p[0], p[2], 13) > 0.38)
+              grassAccents[n].push([
+                p[0] + (rand(p[0], p[2], 14) - 0.5) * 0.25,
+                0.13,
+                p[2] + (rand(p[0], p[2], 15) - 0.5) * 0.25,
+              ]);
+          });
+          [0x84b75b, 0x5e9646, 0x93bd68].forEach((c, i) =>
+            batch(staticRoot, c, [0.42, 0.035, 0.42], grassAccents[i]),
+          );
+          pathBatch = batch(staticRoot, colors.path, [0.9, 0.2, 0.9], paths);
+          const edging = [];
+          paths.forEach((p, i) => {
+            if (i % 5 === 0)
+              edging.push([
+                p[0] + (i % 2 ? 0.65 : -0.65),
+                0.25,
+                p[2] + (i % 3 ? 0.55 : -0.55),
+                i,
+              ]);
+          });
+          batch(staticRoot, 0xc9b98f, [0.28, 0.25, 0.28], edging);
+          batch(staticRoot, 0x78af50, [0.08, 0.65, 0.08], tufts);
+          const gp = new THREE.Mesh(
+            new THREE.PlaneGeometry(38, 32),
+            new THREE.MeshBasicMaterial({
+              transparent: true,
+              opacity: 0,
+              side: THREE.DoubleSide,
+            }),
+          );
+          gp.rotation.x = -Math.PI / 2;
+          gp.position.y = 0.16;
+          gp.material.depthWrite = false;
+          gp.material.colorWrite = false;
+          gp.userData.kind = "ground";
+          staticRoot.add(gp);
+          groundTargets.push(gp);
+          water = new THREE.Mesh(
+            new THREE.CircleGeometry(1, 48),
+            materials.water,
+          );
+          water.scale.set(6.6, 4.6, 1);
+          water.rotation.x = -Math.PI / 2;
+          water.position.set(-1, 0.2, -4);
+          water.material.opacity = 0.68;
+          water.material.depthWrite = false;
+          water.renderOrder = 2;
+          staticRoot.add(water);
+          for (let r = 0; r < 3; r++) {
+            const ring = new THREE.Mesh(
+              new THREE.RingGeometry(1.2 + r * 0.7, 1.25 + r * 0.7, 32),
+              new THREE.MeshBasicMaterial({
+                color: 0xc9ffff,
+                transparent: true,
+                opacity: 0.3,
+                side: THREE.DoubleSide,
+              }),
+            );
+            ring.rotation.x = -Math.PI / 2;
+            ring.position.set(-1, 0.24, -4);
+            ring.scale.set(1.5, 0.8, 1);
+            staticRoot.add(ring);
+            ripples.push(ring);
+          }
+          for (let i = 0; i < 34; i++) {
+            const a = (i / 34) * Math.PI * 2;
+            const rockX = -1 + Math.cos(a) * 6.6;
+            if (Math.abs(rockX + 1) < 1.15) continue;
+            add(
+              staticRoot,
+              i % 2 ? 0xa99874 : 0xc5b58c,
+              [0.65, 0.35, 0.65],
+              [rockX, 0.28, -4 + Math.sin(a) * 4.6],
+            );
+          }
+          bridge(staticRoot, -1, -4, { longCrossing: true });
+          gazebo(staticRoot, -10, 7, 0.72);
+          glasshouse(staticRoot, 10, -7);
+          shed(staticRoot, 12, 7);
+          pergola(staticRoot, -11, -7);
+          hive(staticRoot, 14, 0);
+          beds();
+          trees();
+          flowers();
+          clouds();
+          pondHabitat();
+        }
+        function pondHabitat() {
+          for (let i = 0; i < 22; i++) {
+            const a = (i / 22) * Math.PI * 2,
+              x = -1 + Math.cos(a) * 5.7,
+              z = -4 + Math.sin(a) * 3.8;
+            add(staticRoot, 0x5c873f, [0.1, 0.85, 0.1], [x, 0.65, z]);
+            if (i % 3 === 0)
+              add(staticRoot, 0xc3a65e, [0.16, 0.28, 0.16], [x, 0.98, z]);
+          }
+          for (let i = 0; i < 12; i++) {
+            const a = i * 0.9,
+              r = 1.2 + (i % 4) * 0.8,
+              x = -1 + Math.cos(a) * r,
+              z = -4 + Math.sin(a) * r * 0.62;
+            add(staticRoot, 0x4f934e, [0.72, 0.05, 0.58], [x, 0.27, z]);
+            if (i % 4 === 0)
+              add(staticRoot, 0xf1d0e1, [0.2, 0.18, 0.2], [x, 0.4, z]);
+          }
+          makeFish();
+        }
+        function makeFish() {
+          const fishColors = [0xf08b35, 0xf4c64d, 0xe95c46, 0xf2e5c4, 0xd8664f];
+          for (let i = 0; i < 5; i++) {
+            const koi = new THREE.Group();
+            const bodyColor = fishColors[i];
+            add(koi, bodyColor, [0.46, 0.24, 0.74], [0, 0, 0]);
+            add(koi, i % 2 ? 0xf7efe0 : 0xffffff, [0.36, 0.25, 0.32], [0, 0, 0.38]);
+            const tail = add(koi, bodyColor, [0.52, 0.1, 0.4], [0, 0, -0.51]);
+            tail.rotation.y = Math.PI / 4;
+            for (const side of [-1, 1])
+              add(koi, 0x252c2a, [0.065, 0.065, 0.065], [side * 0.22, 0.11, 0.41]);
+            koi.userData = {
+              phase: i * 1.27,
+              speed: 0.00016 + i * 0.000018,
+              radiusX: 1.8 + (i % 3) * 0.72,
+              radiusZ: 1.05 + (i % 2) * 0.72,
+              tail,
+            };
+            koi.renderOrder = 1;
+            staticRoot.add(koi);
+            fish.push(koi);
+          }
+        }
+        function bridge(p, x, z, options = {}) {
+          const g = new THREE.Group();
+          g.position.set(x, options.longCrossing ? 0.18 : 0.4, z);
+          if (options.longCrossing) {
+            const half = 5;
+            for (let i = -half; i <= half; i++) {
+              const arch = 0.12 + (1 - Math.abs(i) / half) * 0.92;
+              add(g, 0xb85a43, [1.3, 0.24, 1.08], [0, arch, i * 1.05]);
+              if (i % 2 === 0) {
+                for (const side of [-1, 1])
+                  add(g, 0x77402f, [0.15, 0.95, 0.15], [side * 0.82, arch + 0.5, i * 1.05]);
+              }
+              for (const side of [-1, 1])
+                add(g, 0x8e4734, [0.14, 0.14, 1.02], [side * 0.82, arch + 0.9, i * 1.05]);
+            }
+            for (const end of [-1, 1])
+              for (let step = 1; step <= 2; step++)
+                add(g, 0xe8d7ae, [1.35, 0.18, 0.82], [0, 0.08, end * (5.45 + step * 0.72)]);
+            p.add(g);
+            return;
+          }
+          for (let i = -3; i <= 3; i++)
+            add(
+              g,
+              0xb85a43,
+              [1.1, 0.25, 1.05],
+              [i * 0.85, Math.abs(i) * 0.12, 0],
+            );
+          for (const side of [-1, 1]) {
+            for (let i = -3; i <= 3; i++)
+              add(g, 0x77402f, [0.15, 1, 0.15], [i * 0.85, 0.85, side * 0.72]);
+            add(g, 0x8e4734, [5.4, 0.16, 0.16], [0, 1.18, side * 0.72]);
+          }
+          p.add(g);
+        }
+        function gazebo(p, x, z, s = 1) {
+          const g = new THREE.Group();
+          g.position.set(x, 0.2, z);
+          for (const a of [0, Math.PI / 2, Math.PI, Math.PI * 1.5])
+            add(
+              g,
+              0xf2e0b1,
+              [0.22, 3.2, 0.22],
+              [Math.cos(a) * 2.2, 1.6, Math.sin(a) * 2.2],
+            );
+          add(g, 0xf2e0b1, [4.9, 0.22, 4.9], [0, 0.15, 0]);
+          add(g, 0xd56f64, [5.4, 0.45, 5.4], [0, 3.25, 0]);
+          add(g, 0xd56f64, [3.7, 0.5, 3.7], [0, 3.65, 0]);
+          g.scale.setScalar(s);
+          p.add(g);
+        }
+        function glasshouse(p, x, z) {
+          const g = new THREE.Group();
+          g.position.set(x, 0.25, z);
+          for (const sx of [-1, 1])
+            for (const sz of [-1, 1])
+              add(g, 0xe8f4dd, [0.14, 2.8, 0.14], [sx * 2, 1.4, sz * 1.5]);
+          for (const sx of [-1, 1])
+            add(
+              g,
+              0x9ddbd6,
+              [0.15, 2.7, 3],
+              [sx * 2, 1.35, 0],
+              materials.glass,
+            );
+          add(g, 0x9ddbd6, [4, 0.18, 3], [0, 2.85, 0], materials.glass);
+          p.add(g);
+        }
+        function shed(p, x, z) {
+          const g = new THREE.Group();
+          g.position.set(x, 0.2, z);
+          add(g, 0x9e6843, [4, 2.8, 3], [0, 1.4, 0]);
+          add(g, 0xd56c55, [4.6, 0.5, 3.6], [0, 3, 0]);
+          add(g, 0x583d2f, [1.1, 2.1, 0.12], [0, 1.1, 1.55]);
+          p.add(g);
+        }
+        function pergola(p, x, z) {
+          const g = new THREE.Group();
+          g.position.set(x, 0.2, z);
+          for (const x1 of [-2, 2])
+            for (const z1 of [-1.5, 1.5])
+              add(g, 0xa57440, [0.22, 3, 0.22], [x1, 1.5, z1]);
+          for (let i = -2; i <= 2; i++)
+            add(g, 0xc19457, [0.2, 0.2, 3.5], [i, 3.05, 0]);
+          p.add(g);
+        }
+        function hive(p, x, z) {
+          const g = new THREE.Group();
+          g.position.set(x, 0.2, z);
+          add(g, 0x916139, [2, 0.3, 1.6], [0, 0.15, 0]);
+          for (let i = 0; i < 3; i++)
+            add(
+              g,
+              0xe8b942,
+              [1.65 - i * 0.12, 0.55, 1.25 - i * 0.08],
+              [0, 0.55 + i * 0.48, 0],
+            );
+          add(g, 0x553d2f, [0.3, 0.28, 0.12], [0, 0.6, 0.69]);
+          p.add(g);
+        }
+        function beds() {
+          for (const [cx, cz, w, d] of [
+            [8, -6, 8, 5],
+            [-9, -3, 5, 5],
+            [9, 3, 5, 4],
+          ]) {
+            for (let x = Math.ceil(-w / 2); x <= Math.floor(w / 2); x++)
+              for (let z = Math.ceil(-d / 2); z <= Math.floor(d / 2); z++) {
+                const soil = add(
+                  staticRoot,
+                  0x825c3d,
+                  [0.86, 0.22, 0.86],
+                  [cx + x, 0.25, cz + z],
+                );
+                soil.userData = { kind: "soilSurface", plantY: 0 };
+                groundTargets.push(soil);
+              }
+            for (let x = -w / 2; x <= w / 2; x++)
+              add(
+                staticRoot,
+                0xbb8450,
+                [0.9, 0.35, 0.25],
+                [cx + x, 0.45, cz - d / 2 - 0.35],
+              ),
+                add(
+                  staticRoot,
+                  0xbb8450,
+                  [0.9, 0.35, 0.25],
+                  [cx + x, 0.45, cz + d / 2 + 0.35],
+                );
+          }
+        }
+        function tree(x, z, bloom, leafSets) {
+          const treeScale = 0.75 + rand(x, z, 101) * 0.55;
+          add(
+            staticRoot,
+            0x755036,
+            [0.56 * treeScale, 4 * treeScale, 0.56 * treeScale],
+            [x, 0.15 + 2 * treeScale, z],
+          );
+          for (let i = 0; i < 6; i++) {
+            const branch = add(
+              staticRoot,
+              0x755036,
+              [0.22 * treeScale, 2.4 * treeScale, 0.22 * treeScale],
+              [
+                x + Math.cos(i) * 0.65 * treeScale,
+                0.25 + (3.55 + i * 0.18) * treeScale,
+                z + Math.sin(i) * 0.65 * treeScale,
+              ],
+            );
+            branch.rotation.z = (i % 2 ? 1 : -1) * 0.58;
+            branch.rotation.y = i;
+          }
+          let leafIndex = 0;
+          for (let ix = -3; ix <= 3; ix++) {
+            for (let iy = -2; iy <= 3; iy++) {
+              for (let iz = -3; iz <= 3; iz++) {
+                const distance =
+                  (ix / 3.3) ** 2 + (iy / 2.7) ** 2 + (iz / 3.3) ** 2;
+                const fringe = rand(x + ix, z + iz, iy + 20);
+                if (distance > 1.18 || (distance > 0.9 && fringe < 0.22))
+                  continue;
+                const shade = Math.abs(ix + iz + iy + 30) % 3;
+                const set = (bloom ? 3 : 0) + shade;
+                const jitterX = (rand(x, z, leafIndex) - 0.5) * 0.08;
+                const jitterZ = (rand(z, x, leafIndex + 80) - 0.5) * 0.08;
+                leafSets[set].push([
+                  x + (ix * 0.5 + jitterX) * treeScale,
+                  0.2 + (4.75 + iy * 0.47) * treeScale,
+                  z + (iz * 0.5 + jitterZ) * treeScale,
+                  leafIndex * 0.31,
+                  treeScale,
+                ]);
+                leafIndex++;
+              }
+            }
+          }
+        }
+        function trees() {
+          const sets = Array.from({ length: 6 }, () => []),
+            points = [
+              [-16, -11],
+              [-13, -13],
+              [-7, -13],
+              [1, -13],
+              [7, -13],
+              [15, -11],
+              [17, -5],
+              [17, 6],
+              [15, 12],
+              [9, 13],
+              [3, 14],
+              [-4, 13],
+              [-11, 12],
+              [-16, 9],
+              [-17, 2],
+              [-16, -5],
+              [7, 8],
+              [10, 9],
+              [5, 10],
+            ];
+          points.forEach((p, i) => tree(p[0], p[1], i % 4 === 1, sets));
+          const cs = [
+            0x548447, 0x6f9d52, 0x44753f, 0xf4c8d9, 0xffe4ea, 0xf0b8cf,
+          ];
+          sets.forEach((poses, i) => {
+            const b = batch(
+              staticRoot,
+              cs[i],
+              [0.56 + (i % 3) * 0.02, 0.52, 0.56 + (i % 2) * 0.02],
+              poses,
+            );
+            b.userData = { leafBatch: true, bloom: i >= 3, shade: i % 3 };
+            leafBatches.push(b);
+          });
+        }
+        function clump(x, z, c, n = 6) {
+          for (let i = 0; i < n; i++) {
+            const a = i * 2.4 + (rand(x, z, i + 150) - 0.5) * 0.34,
+              r =
+                (0.28 + (i % 3) * 0.24) *
+                (0.84 + rand(x, z, i + 160) * 0.36),
+              px = x + Math.cos(a) * r,
+              pz = z + Math.sin(a) * r,
+              stemHeight = 0.38 + rand(px, pz, i + 170) * 0.42,
+              bloomSize = 0.22 + rand(pz, px, i + 180) * 0.15,
+              shade = (i % 3) - 1,
+              bloomColor = new THREE.Color(c).offsetHSL(
+                shade * 0.018,
+                0,
+                shade * 0.055,
+              );
+            add(
+              staticRoot,
+              0x4f823e,
+              [0.09, stemHeight, 0.09],
+              [px, 0.22 + stemHeight / 2, pz],
+            );
+            const bloom = add(
+              staticRoot,
+              bloomColor.getHex(),
+              [bloomSize, bloomSize * 0.72, bloomSize],
+              [px, 0.25 + stemHeight, pz],
+            );
+            bloom.userData.flower = true;
+            flowerTargets.push(
+              new THREE.Vector3(px, 0.28 + stemHeight + bloomSize / 2, pz),
+            );
+          }
+        }
+        function flowers() {
+          for (let i = 0; i < 20; i++)
+            clump(
+              -11 + (i % 5) * 1.05,
+              -3 + Math.floor(i / 5) * 1.15,
+              [0xef739d, 0xf4c75f, 0x9a79d0, 0xffffff][i % 4],
+              6,
+            );
+          for (let i = 0; i < 15; i++)
+            clump(
+              10 + (i % 3) * 1.1,
+              1 + Math.floor(i / 3) * 1.05,
+              [0xf3c650, 0xffffff, 0xe477a5][i % 3],
+              6,
+            );
+          for (let i = 0; i < 12; i++)
+            clump(
+              -13 + (i % 4) * 1.05,
+              5 + Math.floor(i / 4) * 1.1,
+              [0xa576d1, 0xed7c9f, 0xf5ce5f][i % 3],
+              6,
+            );
+          const hedge = [];
+          for (let x = 4; x <= 12; x += 0.7)
+            hedge.push([x, 0.72, -10.7], [x, 0.72, -2.35]);
+          for (let z = -10; z <= -3; z += 0.7)
+            hedge.push([3.45, 0.72, z], [12.55, 0.72, z]);
+          batch(staticRoot, 0x3f763f, [0.48, 1.1, 0.48], hedge);
+        }
+        function clouds() {
+          for (let c = 0; c < 7; c++) {
+            const g = new THREE.Group();
+            for (let i = 0; i < 5; i++)
+              add(
+                g,
+                0xffffff,
+                [2.1 - i * 0.14, 0.75 + (i % 2) * 0.3, 1.1],
+                [i * 1.15, Math.sin(i) * 0.28, 0],
+                new THREE.MeshLambertMaterial({
+                  color: 0xffffff,
+                  transparent: true,
+                  opacity: 0.72,
+                }),
+              );
+            g.position.set(-30 + c * 10, 15 + (c % 3) * 2, -23 + (c % 2) * 5);
+            g.userData.cloud = true;
+            staticRoot.add(g);
+          }
+          const frost = [];
+          for (let i = 0; i < 150; i++) {
+            const x = -18 + (i % 25) * 1.5,
+              z = -14 + Math.floor(i / 25) * 5.4;
+            if (!pond(x, z)) frost.push([x, 0.17, z, i]);
+          }
+          const f = batch(staticRoot, 0xeaf4f1, [0.42, 0.04, 0.42], frost);
+          f.userData.frost = true;
+          f.visible = false;
+        }
+        function template(type) {
+          const g = new THREE.Group();
+          if (type === "raisedBed") {
+            add(g, 0xa76f42, [4, 0.7, 3], [0, 0.35, 0]);
+            add(g, 0x68482f, [3.25, 0.18, 2.25], [0, 0.78, 0]);
+          } else if (type === "bench") {
+            add(g, 0xb47a43, [3, 0.3, 0.7], [0, 1, 0]);
+            add(g, 0xb47a43, [3, 0.25, 0.25], [0, 1.8, -0.3]);
+            for (const x of [-1.1, 1.1])
+              add(g, 0x68452f, [0.25, 1.2, 0.25], [x, 0.6, 0]);
+          } else if (type === "trellis") {
+            for (const x of [-1.5, -0.5, 0.5, 1.5])
+              add(g, 0xb68851, [0.12, 3, 0.12], [x, 1.5, 0]);
+            for (const y of [0.7, 1.5, 2.3])
+              add(g, 0xb68851, [3.2, 0.12, 0.12], [0, y, 0]);
+          } else if (type === "bridge") bridge(g, 0, 0);
+          else if (type === "beehive") hive(g, 0, 0);
+          else gazebo(g, 0, 0, 0.65);
+          return g;
+        }
+        function plantVisual(p) {
+          const s = M.SPECIES[p.species],
+            g = new THREE.Group(),
+            st = p.stage,
+            sc = 0.45 + st * 0.1;
+          g.userData = { kind: "plant", id: p.id };
+          if (p.moisture > 0.6) {
+            add(g, 0x4d493b, [1.15, 0.08, 1.15], [0, 0.04, 0]);
+            for (let i = 0; i < 3; i++)
+              add(
+                g,
+                0xc8f4f1,
+                [0.08, 0.08, 0.08],
+                [(i - 1) * 0.35, 0.14 + (i % 2) * 0.08, 0.35 - i * 0.25],
+                new THREE.MeshBasicMaterial({ color: 0xc8f4f1 }),
+              );
+          }
+          if (st === 0) add(g, 0x765037, [0.38, 0.16, 0.38], [0, 0.18, 0]);
+          else {
+            const stemH =
+              Math.max(0.3, st * 0.35) * (p.species === "sunflower" ? 1.35 : 1);
+            add(g, 0x4e823f, [0.16, stemH, 0.16], [0, stemH / 2, 0]);
+            for (const q of [-1, 1])
+              add(
+                g,
+                0x67a24d,
+                [0.65, 0.12, 0.32],
+                [q * 0.32, (p.moisture < 0.1 ? 0.25 : 0.55) + st * 0.12, 0],
+              );
+            if (st >= 4 && p.species !== "carrot") {
+              const head = {
+                sunflower: 0xf5c43e,
+                tomato: 0xf4d765,
+                strawberry: 0xffffff,
+                bean: 0xe8d8e9,
+                tulip: 0xed698d,
+              }[p.species];
+              add(
+                g,
+                head,
+                [
+                  p.species === "sunflower" ? 0.9 : 0.62,
+                  0.5,
+                  p.species === "sunflower" ? 0.9 : 0.62,
+                ],
+                [0, stemH + 0.2, 0],
+              );
+              if (p.species === "sunflower" && st >= 5)
+                add(g, 0x694725, [0.42, 0.45, 0.42], [0, stemH + 0.22, 0.42]);
+            }
+            if (st >= 7 || (s.rootCrop && st >= 5)) {
+              const fruit = {
+                sunflower: 0x73512d,
+                tomato: 0xe34f3c,
+                strawberry: 0xdd3e51,
+                bean: 0x79a841,
+                carrot: 0xed7a2e,
+                tulip: 0xed698d,
+              }[p.species];
+              for (let i = 0; i < 3; i++)
+                add(
+                  g,
+                  fruit,
+                  [0.38, 0.38, 0.38],
+                  [
+                    (i - 1) * 0.4,
+                    p.species === "carrot" ? 0.12 : st * 0.25 - (i % 2) * 0.25,
+                    0.18,
+                  ],
+                );
+            }
+          }
+          g.scale.setScalar(sc);
+          g.position.set(p.x, p.y + 0.25, p.z);
+          g.traverse((m) => {
+            if (m.isMesh) m.userData = { kind: "plant", id: p.id };
+          });
+          return g;
+        }
+        function rebuild() {
+          userRoot.clear();
+          plantRoot.clear();
+          objectMeshes.clear();
+          state.userBlocks.forEach((b) => {
+            const m = cube(
+              colors[b.type] || colors.grass,
+              [0.96, 0.96, 0.96],
+              [b.x, b.y + 0.65, b.z],
+              materials[b.type],
+            );
+            m.userData = { kind: "block", id: b.id };
+            userRoot.add(m);
+            objectMeshes.set(b.id, m);
+          });
+          state.templates.forEach((t) => {
+            const g = template(t.type);
+            g.position.set(t.x, t.y + 0.2, t.z);
+            g.rotation.y = (t.rotation * Math.PI) / 2;
+            g.traverse((m) => {
+              if (m.isMesh) m.userData = { kind: "template", id: t.id };
+            });
+            userRoot.add(g);
+            objectMeshes.set(t.id, g);
+          });
+          state.plants.forEach((p) => plantRoot.add(plantVisual(p)));
+        }
+        function wildlifeSetup() {
+          for (let i = 0; i < 8; i++) {
+            const g = new THREE.Group(),
+              bee = i < 5;
+            add(
+              g,
+              bee ? 0xf5c33f : i % 2 ? 0xec7799 : 0x8e76d2,
+              [0.32, 0.22, 0.48],
+              [0, 0, 0],
+            );
+            if (bee) add(g, 0x3c3224, [0.34, 0.23, 0.13], [0, 0, 0.05]);
+            for (const q of [-1, 1])
+              add(
+                g,
+                0xe8f6ee,
+                [0.35, 0.06, 0.25],
+                [q * 0.25, 0.13, 0],
+                new THREE.MeshLambertMaterial({
+                  color: 0xe8f6ee,
+                  transparent: true,
+                  opacity: 0.75,
+                }),
+              );
+            g.userData = {
+              bee,
+              phase: i * 1.7,
+              target: i % flowerTargets.length,
+              lastVisit: 0,
+            };
+            wildRoot.add(g);
+            wildlife.push(g);
+          }
+          for (let i = 0; i < 2; i++) {
+            const b = new THREE.Group();
+            add(b, 0x4d4b4a, [0.35, 0.18, 0.55], [0, 0, 0]);
+            for (const q of [-1, 1])
+              add(b, 0xe9e2d4, [0.55, 0.08, 0.28], [q * 0.38, 0.05, 0]);
+            b.userData.phase = i * 3.1;
+            wildRoot.add(b);
+            birds.push(b);
+          }
+          for (let i = 0; i < 72; i++) {
+            const m = cube(
+              0xffffff,
+              [0.07, 0.07, 0.07],
+              [0, 0, 0],
+              new THREE.MeshBasicMaterial({
+                color: 0xffffff,
+                transparent: true,
+                opacity: 0.75,
+              }),
+            );
+            m.userData = {
+              phase: i * 1.31,
+              weatherX: -17 + rand(i, 41) * 34,
+              weatherZ: -13 + rand(i, 42) * 26,
+              weatherOffset: rand(i, 43) * 17,
+              rainSpeed: 0.0047 + rand(i, 44) * 0.0025,
+              rainLength: 0.38 + rand(i, 45) * 0.22,
+              drift: (rand(i, 46) - 0.5) * 0.8,
+            };
+            particleRoot.add(m);
+            particles.push(m);
+          }
+        }
+        const STORE = "moss-marrow-3d-v2";
+        let state = M.createState(),
+          history = [],
+          mode = "garden",
+          tool = "sunflower",
+          selectedId = null,
+          ghost = null,
+          ghostKey = "",
+          lastSave = 0,
+          lastPlantSig = "",
+          toastTimer,
+          storageOK = true;
+        function starter() {
+          let s = M.createState();
+          [
+            ["sunflower", 7, -6, 5],
+            ["tomato", 8, -5, 6],
+            ["strawberry", 10, -6, 5],
+            ["bean", 6, -7, 4],
+            ["carrot", 9, -8, 6],
+            ["tulip", -9, -3, 5],
+            ["tulip", -11, -2, 4],
+          ].forEach((v) => {
+            s = M.reduce(s, {
+              type: "plant",
+              species: v[0],
+              x: v[1],
+              z: v[2],
+            }).state;
+            const p = s.plants.at(-1);
+            p.stage = v[3];
+            p.progress = v[3] * 25 + 0.1;
+            p.moisture = 0.8;
+            p.pollinated = v[3] >= 6;
+          });
+          return s;
+        }
+        function load() {
+          try {
+            const raw = localStorage.getItem(STORE),
+              loaded = raw && M.loadState(raw);
+            state = loaded || starter();
+            if (!loaded) save();
+          } catch (_) {
+            state = starter();
+            storageOK = false;
+            saveMark();
+          }
+        }
+        function save() {
+          if (!storageOK) return;
+          try {
+            localStorage.setItem(STORE, JSON.stringify(state));
+            lastSave = performance.now();
+            saveMark();
+          } catch (_) {
+            storageOK = false;
+            saveMark();
+          }
+        }
+        function saveMark() {
+          const e = document.getElementById("save");
+          e.textContent = storageOK ? "● saved" : "● save unavailable";
+          e.classList.toggle("bad", !storageOK);
+        }
+        function toast(t) {
+          const e = document.getElementById("toast");
+          e.textContent = t;
+          e.classList.add("show");
+          clearTimeout(toastTimer);
+          toastTimer = setTimeout(() => e.classList.remove("show"), 1700);
+        }
+        function clearGhost() {
+          if (ghost) scene.remove(ghost);
+          ghost = null;
+          ghostKey = "";
+        }
+        function transaction(a, msg) {
+          const r = M.reduce(state, a);
+          if (!r.changed) {
+            toast("That spot is occupied or unavailable");
+            return false;
+          }
+          history.push(M.cloneState(state));
+          if (history.length > 40) history.shift();
+          state = r.state;
+          selectedId = null;
+          clearGhost();
+          rebuild();
+          environment();
+          ui();
+          save();
+          if (msg) toast(msg);
+          return true;
+        }
+        function undo() {
+          if (!history.length) return;
+          state = history.pop();
+          selectedId = null;
+          clearGhost();
+          rebuild();
+          environment();
+          ui();
+          save();
+          toast("Undone");
+        }
+        function inspect(id) {
+          const p = state.plants.find((q) => q.id === id);
+          if (!p) return;
+          const s = M.SPECIES[p.species],
+            msgs = [
+              "This seed is waiting in the soil.",
+              "A tiny root is growing.",
+              "First leaves reach for light.",
+              "Leaves use sunlight to help the plant grow.",
+              "A flower bud is forming.",
+              s.needsInsect
+                ? "An insect visit can help this flower make more fruit or seeds."
+                : "This flower is open.",
+              s.selfPollinating
+                ? "This flower can pollinate itself."
+                : "Pollen has reached this flower!",
+              `${s.final} is ready to discover.`,
+            ],
+            stage =
+      s.rootCrop && p.stage >= 4
+        ? p.stage === 4
+          ? "Growing root"
+          : "Edible root"
+                : s.flowerCrop && p.stage >= 5
+                  ? "Open flower"
+                  : M.STAGES[p.stage];
+    if (s.rootCrop && p.stage >= 4)
+      msgs[p.stage] =
+        p.stage === 4
+          ? "The orange root is storing food below the soil."
+          : p.stage === 5
+            ? "The orange storage root is ready below the soil."
+            : "This carrot root is plump and ready to harvest.";
+          document.getElementById("plant-name").innerHTML =
+            `<span>${s.emoji}</span>${s.name}`;
+          document.getElementById("plant-stage").textContent =
+            `Stage ${p.stage + 1} of 8 · ${stage}`;
+          document.getElementById("plant-message").textContent =
+            p.moisture < 0.1
+              ? "This plant is drooping. Water helps it continue; it will not die."
+              : msgs[p.stage];
+          document.getElementById("card").classList.remove("hidden");
+        }
+        function staticOccupied(x, z) {
+          return (
+            pond(x, z) ||
+            (Math.abs(x + 10) <= 3 && Math.abs(z - 7) <= 3) ||
+            (Math.abs(x - 10) <= 3 && Math.abs(z + 7) <= 2) ||
+            (Math.abs(x - 12) <= 3 && Math.abs(z - 7) <= 2) ||
+            (Math.abs(x + 11) <= 3 && Math.abs(z + 7) <= 2) ||
+            (Math.abs(x - 14) <= 2 && Math.abs(z) <= 2)
+          );
+        }
+        function careForPlant(id) {
+          const plant = state.plants.find((p) => p.id === id);
+          if (!plant) return false;
+          selectedId = id;
+          if (tool === "water") {
+            if (plant.moisture >= 0.98) toast("This plant is already watered 💧");
+            else transaction({ type: "waterPlant", id }, "Watered! 💧");
+            selectedId = id;
+          }
+          inspect(id);
+          ui();
+          return true;
+        }
+        function tap(px, py) {
+          const ndc = new THREE.Vector2(
+            (px / innerWidth) * 2 - 1,
+            (-py / innerHeight) * 2 + 1,
+          );
+          raycaster.setFromCamera(ndc, camera);
+          const hits = raycaster.intersectObjects(
+            [userRoot, plantRoot, ...groundTargets],
+            true,
+          );
+          if (!hits.length) return;
+          const hit = hits[0],
+            d = hit.object.userData;
+          if (d.kind === "plant") {
+            careForPlant(d.id);
+            return;
+          }
+          if (mode === "garden" && (tool === "water" || tool === "inspect")) {
+            const nearby = state.plants
+              .map((plant) => ({
+                plant,
+                distance:
+                  (plant.x - hit.point.x) ** 2 +
+                  (plant.z - hit.point.z) ** 2,
+              }))
+              .filter((candidate) => candidate.distance <= 1.45)
+              .sort((a, b) => a.distance - b.distance)[0];
+            if (nearby) careForPlant(nearby.plant.id);
+            else toast("Tap near a plant");
+            return;
+          }
+          if (d.kind === "block" || d.kind === "template") {
+            selectedId = d.id;
+            ui();
+            if (tool === "select") {
+              toast("Selected — use Delete");
+              return;
+            }
+          }
+          if (mode === "garden") {
+            const x = Math.round(hit.point.x),
+              z = Math.round(hit.point.z);
+            if (M.SPECIES[tool]) {
+              let y = null;
+              if (d.kind === "soilSurface") y = d.plantY || 0;
+              if (d.kind === "block") {
+                const b = state.userBlocks.find((q) => q.id === d.id);
+                if (b && b.type === "soil") y = b.y + 1;
+              }
+              if (d.kind === "template") {
+                const t = state.templates.find((q) => q.id === d.id);
+                if (t && t.type === "raisedBed") y = t.y + 1;
+              }
+              if (y === null) {
+                toast("Seeds need the top of a soil bed");
+                return;
+              }
+              transaction(
+                { type: "plant", species: tool, x, y, z },
+                "Seed planted 🌱",
+              );
+            }
+            return;
+          }
+          if (tool === "select") {
+            if (!d.id) toast("Tap something you built");
+            return;
+          }
+          let x = Math.round(hit.point.x),
+            y = 0,
+            z = Math.round(hit.point.z);
+          if (d.kind === "block") {
+            const b = state.userBlocks.find((q) => q.id === d.id),
+              n = hit.face.normal
+                .clone()
+                .transformDirection(hit.object.matrixWorld);
+            x = b.x + Math.round(n.x);
+            y = Math.max(0, b.y + Math.round(n.y));
+            z = b.z + Math.round(n.z);
+          }
+          const obj = M.TEMPLATE_TYPES.includes(tool);
+          if (d.kind !== "block" && staticOccupied(x, z) && tool !== "bridge") {
+            toast("Choose the open building lawn");
+            return;
+          }
+          const key = `${tool}:${x}:${y}:${z}`;
+          if (ghostKey === key) {
+            transaction(
+              obj
+                ? { type: "placeTemplate", templateType: tool, x, y: 0, z }
+                : { type: "placeBlock", blockType: tool, x, y, z },
+              obj ? "Garden object placed" : "Block placed",
+            );
+            return;
+          }
+          clearGhost();
+          ghost = obj
+            ? template(tool)
+            : cube(0xffdf60, [0.98, 0.98, 0.98], [0, 0, 0], materials.ghost);
+          ghost.traverse((m) => {
+            if (m.isMesh) {
+              m.material = materials.ghost;
+              m.castShadow = false;
+            }
+          });
+          ghost.position.set(x, obj ? 0.2 : y + 0.65, z);
+          scene.add(ghost);
+          ghostKey = key;
+          toast("Tap again to place");
+        }
+        const garden = [
+            ["sunflower", "🌻", "Sunflower"],
+            ["tomato", "🍅", "Tomato"],
+            ["strawberry", "🍓", "Berry"],
+            ["bean", "🫘", "Bean"],
+            ["carrot", "🥕", "Carrot"],
+            ["tulip", "🌷", "Tulip"],
+            ["water", "💧", "Water"],
+            ["inspect", "🔎", "Inspect"],
+          ],
+          build = [
+            ["grass", "🟩", "Grass"],
+            ["soil", "🟫", "Soil"],
+            ["stone", "🪨", "Stone"],
+            ["wood", "🪵", "Wood"],
+            ["brick", "🧱", "Brick"],
+            ["roof", "🔺", "Roof"],
+            ["glass", "🪟", "Glass"],
+            ["water", "💧", "Water"],
+            ["path", "⬜", "Paths"],
+            ["flowers", "🌼", "Flowers"],
+            ["fence", "🚧", "Fences"],
+            ["objects", "🏡", "Objects"],
+            ["select", "👆", "Select"],
+          ],
+          objects = [
+            ["raisedBed", "🌱", "Raised bed"],
+            ["bench", "🪑", "Bench"],
+            ["trellis", "🪜", "Trellis"],
+            ["bridge", "🌉", "Bridge"],
+            ["beehive", "🐝", "Beehive"],
+            ["gazebo", "⛺", "Gazebo"],
+          ];
+        function trays() {
+          const list = mode === "garden" ? garden : build,
+            e = document.getElementById("tray");
+          e.innerHTML = list
+            .map(
+              (v) =>
+                `<button class="choice" data-choice="${v[0]}" aria-pressed="${tool === v[0]}"><i>${v[1]}</i>${v[2]}</button>`,
+            )
+            .join("");
+          e.querySelectorAll("button").forEach(
+            (b) =>
+              (b.onclick = () => {
+                if (b.dataset.choice === "objects") {
+                  document.getElementById("subtray").classList.toggle("open");
+                  return;
+                }
+                tool = b.dataset.choice;
+                selectedId = null;
+                clearGhost();
+                document.getElementById("subtray").classList.remove("open");
+                trays();
+                ui();
+              }),
+          );
+          const s = document.getElementById("subtray");
+          s.innerHTML = objects
+            .map(
+              (v) =>
+                `<button class="choice" data-object="${v[0]}"><i>${v[1]}</i>${v[2]}</button>`,
+            )
+            .join("");
+          s.querySelectorAll("button").forEach(
+            (b) =>
+              (b.onclick = () => {
+                tool = b.dataset.object;
+                clearGhost();
+                s.classList.remove("open");
+                trays();
+                ui();
+              }),
+          );
+        }
+        function ui() {
+          document
+            .getElementById("garden-mode")
+            .setAttribute("aria-pressed", mode === "garden");
+          document
+            .getElementById("build-mode")
+            .setAttribute("aria-pressed", mode === "build");
+          document.getElementById("undo").disabled = !history.length;
+          document.getElementById("delete").disabled = !selectedId;
+          document
+            .getElementById("sound")
+            .setAttribute("aria-pressed", state.sound);
+          document.querySelector("#sound span").textContent = state.sound
+            ? "🔊"
+            : "🔇";
+          const names = {
+            water: "Water a plant",
+            inspect: "Tap a plant to learn",
+            select: "Tap something you built",
+          };
+          let text = names[tool];
+          if (!text && mode === "garden" && M.SPECIES[tool])
+            text = `Plant ${M.SPECIES[tool].name} on soil`;
+          if (!text) text = `Tap once to preview ${tool}, then again to place`;
+          document.getElementById("caption").textContent =
+            (mode === "garden" ? "🌻 " : "🧱 ") + text;
+        }
+        function setMode(m) {
+          mode = m;
+          tool = m === "garden" ? "sunflower" : "grass";
+          selectedId = null;
+          clearGhost();
+          document.getElementById("card").classList.add("hidden");
+          trays();
+          ui();
+        }
+        document.getElementById("garden-mode").onclick = () =>
+          setMode("garden");
+        document.getElementById("build-mode").onclick = () => setMode("build");
+        document.getElementById("undo").onclick = undo;
+        document.getElementById("delete").onclick = () =>
+          selectedId &&
+          transaction({ type: "deleteObject", id: selectedId }, "Removed");
+        const home = {
+          theta: 0.72,
+          phi: 0.78,
+          zoom: 1,
+          target: new THREE.Vector3(),
+        };
+        let view = {
+            theta: 0.72,
+            phi: 0.78,
+            zoom: 1,
+            target: new THREE.Vector3(),
+          },
+          desired = {
+            theta: 0.72,
+            phi: 0.78,
+            zoom: 1,
+            target: new THREE.Vector3(),
+          };
+        document.getElementById("home").onclick = () => {
+          desired.theta = home.theta;
+          desired.phi = home.phi;
+          desired.zoom = home.zoom;
+          desired.target.set(0, 0, 0);
+          toast("Home view");
+        };
+        function setZoom(nextZoom) {
+          desired.zoom = Math.max(0.65, Math.min(6, nextZoom));
+        }
+        document.getElementById("zoom-in").onclick = () => {
+          setZoom(desired.zoom * 1.55);
+          toast("Zooming closer");
+        };
+        document.getElementById("zoom-out").onclick = () => {
+          setZoom(desired.zoom / 1.55);
+          toast("Zooming out");
+        };
+        document
+          .querySelectorAll("[data-season]")
+          .forEach(
+            (b) =>
+              (b.onclick = () =>
+                transaction(
+                  { type: "setSeason", season: b.dataset.season },
+                  `${b.textContent.trim()} is here`,
+                )),
+          );
+        document
+          .querySelectorAll("[data-weather]")
+          .forEach(
+            (b) =>
+              (b.onclick = () =>
+                transaction(
+                  { type: "setWeather", weather: b.dataset.weather },
+                  b.dataset.weather === "rain"
+                    ? "Rain waters open soil"
+                    : "Sunshine returns",
+                )),
+          );
+        const envs = {
+          spring: [0xdedcf2, 0xe5e3ef, 0xdce9ff, 0xffdda2],
+          summer: [0xb9dce7, 0xcce4e4, 0xe9f7ff, 0xffd071],
+          autumn: [0xe8c8b1, 0xead6c2, 0xf6e0d1, 0xffbb68],
+          winter: [0xcfd9e3, 0xdce4e9, 0xe8f1ff, 0xdde4ee],
+        };
+        function environment() {
+          const e = envs[state.season];
+          scene.background = new THREE.Color(e[0]);
+          scene.fog = new THREE.Fog(e[1], 42, 85);
+          hemi.color.setHex(e[2]);
+          sun.color.setHex(e[3]);
+          sun.intensity = state.weather === "rain" ? 1.25 : 2.6;
+          renderer.toneMappingExposure = state.weather === "rain" ? 0.86 : 1;
+          if (grassBatch)
+            grassBatch.material.color.setHex(
+              {
+                spring: 0x6ea34d,
+                summer: 0x4f9143,
+                autumn: 0x8f954b,
+                winter: 0xb8c9b8,
+              }[state.season],
+            );
+          staticRoot.traverse((o) => {
+            if (o.userData.leaf || o.userData.leafBatch) {
+              o.visible = state.season !== "winter";
+              const palettes = {
+                spring: o.userData.bloom
+                  ? [0xf4c8d9, 0xffe4ea, 0xf0b8cf]
+                  : [0x62a153, 0x78ad5e, 0x4d8845],
+                summer: [0x477f3f, 0x5d9147, 0x39723a],
+                autumn: [0xc0713e, 0xda9445, 0xa9573d],
+              };
+              if (o.visible)
+                o.material.color.setHex(
+                  palettes[state.season][o.userData.shade],
+                );
+            }
+            if (o.userData.flower) o.visible = state.season !== "winter";
+            if (o.userData.frost) o.visible = state.season === "winter";
+          });
+          document
+            .querySelectorAll("[data-season]")
+            .forEach((b) =>
+              b.setAttribute("aria-pressed", b.dataset.season === state.season),
+            );
+          document
+            .querySelectorAll("[data-weather]")
+            .forEach((b) =>
+              b.setAttribute(
+                "aria-pressed",
+                b.dataset.weather === state.weather,
+              ),
+            );
+          audioMix();
+        }
+        let ac, wind, rain, buzz, waterSound;
+        function audioInit() {
+          if (ac) return;
+          ac = new (window.AudioContext || window.webkitAudioContext)();
+          const master = ac.createGain();
+          master.gain.value = 0.035;
+          master.connect(ac.destination);
+          function noise(freq, type) {
+            const buffer = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate),
+              data = buffer.getChannelData(0);
+            for (let i = 0; i < data.length; i++)
+              data[i] = Math.random() * 2 - 1;
+            const src = ac.createBufferSource(),
+              filter = ac.createBiquadFilter(),
+              gain = ac.createGain();
+            src.buffer = buffer;
+            src.loop = true;
+            filter.type = type;
+            filter.frequency.value = freq;
+            gain.gain.value = 0;
+            src.connect(filter).connect(gain).connect(master);
+            src.start();
+            return gain;
+          }
+          function hum(freq) {
+            const o = ac.createOscillator(),
+              g = ac.createGain();
+            o.type = "sawtooth";
+            o.frequency.value = freq;
+            g.gain.value = 0;
+            o.connect(g).connect(master);
+            o.start();
+            return g;
+          }
+          wind = noise(430, "lowpass");
+          rain = noise(1500, "bandpass");
+          waterSound = noise(720, "bandpass");
+          buzz = hum(148);
+        }
+        function chirp() {
+          if (
+            !ac ||
+            !state.sound ||
+            state.weather === "rain" ||
+            state.season === "winter"
+          )
+            return;
+          const o = ac.createOscillator(),
+            g = ac.createGain(),
+            n = ac.currentTime;
+          o.type = "sine";
+          o.frequency.setValueAtTime(1100, n);
+          o.frequency.exponentialRampToValueAtTime(1900, n + 0.16);
+          g.gain.setValueAtTime(0, n);
+          g.gain.linearRampToValueAtTime(0.06, n + 0.03);
+          g.gain.exponentialRampToValueAtTime(0.001, n + 0.25);
+          o.connect(g).connect(ac.destination);
+          o.start(n);
+          o.stop(n + 0.26);
+        }
+        function audioMix() {
+          if (!ac) return;
+          const n = ac.currentTime,
+            on = state.sound;
+          wind.gain.setTargetAtTime(
+            on ? (state.season === "autumn" ? 0.12 : 0.07) : 0,
+            n,
+            0.3,
+          );
+          rain.gain.setTargetAtTime(
+            on && state.weather === "rain" ? 0.12 : 0,
+            n,
+            0.25,
+          );
+          waterSound.gain.setTargetAtTime(on ? 0.035 : 0, n, 0.4);
+          buzz.gain.setTargetAtTime(
+            on && state.weather === "sun" && state.season !== "winter"
+              ? 0.035
+              : 0,
+            n,
+            0.3,
+          );
+        }
+        document.getElementById("sound").onclick = () => {
+          audioInit();
+          if (ac.state === "suspended") ac.resume();
+          const turningOn = !state.sound;
+          transaction(
+            { type: "setSound", sound: turningOn },
+            turningOn ? "Garden sounds on" : "Sound off",
+          );
+          if (turningOn) setTimeout(chirp, 250);
+        };
+        const pointers = new Map();
+        let moved = false,
+          multi = false,
+          lastCenter,
+          lastDist;
+        canvas.addEventListener("pointerdown", (e) => {
+          canvas.setPointerCapture(e.pointerId);
+          pointers.set(e.pointerId, {
+            x: e.clientX,
+            y: e.clientY,
+            sx: e.clientX,
+            sy: e.clientY,
+          });
+          if (pointers.size === 1) {
+            moved = false;
+            multi = false;
+          } else {
+            multi = true;
+            const a = [...pointers.values()];
+            lastCenter = { x: (a[0].x + a[1].x) / 2, y: (a[0].y + a[1].y) / 2 };
+            lastDist = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y);
+          }
+        });
+        canvas.addEventListener(
+          "pointermove",
+          (e) => {
+            const p = pointers.get(e.pointerId);
+            if (!p) return;
+            const dx = e.clientX - p.x,
+              dy = e.clientY - p.y;
+            p.x = e.clientX;
+            p.y = e.clientY;
+            if (Math.hypot(e.clientX - p.sx, e.clientY - p.sy) > 8)
+              moved = true;
+            if (pointers.size === 1 && !multi) {
+              desired.theta -= dx * 0.007;
+              desired.phi = Math.max(
+                0.38,
+                Math.min(1.18, desired.phi - dy * 0.006),
+              );
+            } else if (pointers.size >= 2) {
+              moved = true;
+              const a = [...pointers.values()],
+                c = { x: (a[0].x + a[1].x) / 2, y: (a[0].y + a[1].y) / 2 },
+                dist = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y);
+              desired.zoom = Math.max(
+                0.65,
+                Math.min(6, (desired.zoom * dist) / Math.max(1, lastDist)),
+              );
+              const q = 0.025 / Math.sqrt(desired.zoom),
+                A = desired.theta;
+              desired.target.x +=
+                (-Math.cos(A) * (c.x - lastCenter.x) +
+                  Math.sin(A) * (c.y - lastCenter.y)) *
+                q;
+              desired.target.z +=
+                (-Math.sin(A) * (c.x - lastCenter.x) -
+                  Math.cos(A) * (c.y - lastCenter.y)) *
+                q;
+              desired.target.x = Math.max(-18, Math.min(18, desired.target.x));
+              desired.target.z = Math.max(-15, Math.min(15, desired.target.z));
+              lastCenter = c;
+              lastDist = dist;
+            }
+            e.preventDefault();
+          },
+          { passive: false },
+        );
+        function end(e) {
+          const p = pointers.get(e.pointerId),
+            count = pointers.size;
+          pointers.delete(e.pointerId);
+          if (p && !moved && !multi && count === 1) tap(e.clientX, e.clientY);
+          if (!pointers.size) {
+            moved = false;
+            multi = false;
+          }
+        }
+        canvas.addEventListener("pointerup", end);
+        canvas.addEventListener("pointercancel", (e) => {
+          pointers.delete(e.pointerId);
+          moved = true;
+          multi = true;
+        });
+        canvas.addEventListener("lostpointercapture", (e) =>
+          pointers.delete(e.pointerId),
+        );
+        canvas.addEventListener(
+          "wheel",
+          (e) => {
+            setZoom(desired.zoom * Math.exp(-e.deltaY * 0.0015));
+            e.preventDefault();
+          },
+          { passive: false },
+        );
+        function resize() {
+          const w = innerWidth,
+            h = innerHeight;
+          if (
+            w === lastWidth &&
+            h === lastHeight &&
+            Math.abs(view.zoom - lastZoom) < 0.001
+          )
+            return;
+          const aspect = w / h,
+            size = (w < h ? 35 : 24) / view.zoom;
+          camera.left = -size * aspect;
+          camera.right = size * aspect;
+          camera.top = size;
+          camera.bottom = -size;
+          camera.near = 0.1;
+          camera.far = 160;
+          camera.updateProjectionMatrix();
+          if (w !== lastWidth || h !== lastHeight)
+            renderer.setSize(w, h, false);
+          lastWidth = w;
+          lastHeight = h;
+          lastZoom = view.zoom;
+        }
+        function cam() {
+          view.theta += (desired.theta - view.theta) * 0.09;
+          view.phi += (desired.phi - view.phi) * 0.09;
+          view.zoom += (desired.zoom - view.zoom) * 0.09;
+          view.target.lerp(desired.target, 0.09);
+          const r = 47,
+            c = Math.cos(view.phi);
+          camera.position.set(
+            view.target.x + r * Math.sin(view.theta) * c,
+            view.target.y + r * Math.sin(view.phi),
+            view.target.z + r * Math.cos(view.theta) * c,
+          );
+          camera.lookAt(view.target);
+          resize();
+        }
+        function pollenAt(p) {
+          const burst = new THREE.Group();
+          for (let i = 0; i < 10; i++) {
+            const a = (i / 10) * Math.PI * 2,
+              s = cube(
+                0xffdf58,
+                [0.1, 0.1, 0.1],
+                [
+                  Math.cos(a) * 0.55,
+                  1.4 + Math.sin(i * 2) * 0.25,
+                  Math.sin(a) * 0.55,
+                ],
+                new THREE.MeshBasicMaterial({ color: 0xffdf58 }),
+              );
+            burst.add(s);
+          }
+          burst.position.set(p.x, p.y, p.z);
+          scene.add(burst);
+          setTimeout(() => scene.remove(burst), 900);
+        }
+        function motion(t, dt) {
+          const active = state.weather === "sun" && state.season !== "winter",
+            hives = state.templates.filter((q) => q.type === "beehive").length,
+            extraFlowers = state.userBlocks.filter(
+              (q) => q.type === "flowers",
+            ).length,
+            activeCount = Math.min(
+              wildlife.length,
+              (state.season === "summer" ? 6 : 4) +
+                hives +
+                Math.floor(extraFlowers / 3),
+            );
+          wildRoot.visible = active;
+          const eligible = state.plants.filter(
+              (p) =>
+                p.stage === 5 &&
+                M.SPECIES[p.species].needsInsect &&
+                !p.pollinated,
+            ),
+            springMix = [0, 1, 5, 6, 2, 7, 3, 4],
+            order =
+              state.season === "spring" ? springMix : [0, 1, 2, 3, 4, 5, 6, 7];
+          wildlife.forEach((w, i) => {
+            w.visible = active && order.indexOf(i) < activeCount;
+            if (!w.visible) return;
+            const plant = eligible.length
+                ? eligible[(i + Math.floor(t / 8000)) % eligible.length]
+                : null,
+              target = plant
+                ? new THREE.Vector3(plant.x, plant.y + 1.1, plant.z)
+                : flowerTargets[
+                    (Math.floor(t * 0.00006) + w.userData.target) %
+                      flowerTargets.length
+                  ],
+              a = t * 0.00065 * (w.userData.bee ? 1.4 : 0.9) + w.userData.phase,
+              r = plant ? 0.55 : 1.2 + (i % 3) * 0.4;
+            w.position.set(
+              target.x + Math.cos(a * 4) * r,
+              target.y + 1.1 + Math.sin(a * 6) * 0.25,
+              target.z + Math.sin(a * 4) * r,
+            );
+            w.rotation.y = -a * 4;
+            if (plant && t - w.userData.lastVisit > 6500) {
+              w.userData.lastVisit = t;
+              const q = M.reduce(state, { type: "pollinate", id: plant.id });
+              if (q.changed) {
+                state = q.state;
+                pollenAt(plant);
+                rebuild();
+                save();
+                toast(
+                  `${w.userData.bee ? "A bee" : "A butterfly"} shared pollen ✨`,
+                );
+              }
+            }
+          });
+          birds.forEach((b, i) => {
+            b.visible = active;
+            const a = t * 0.00018 + b.userData.phase;
+            b.position.set(Math.cos(a) * 20, 10 + i * 1.5, Math.sin(a) * 15);
+            b.rotation.y = -a;
+          });
+          fish.forEach((koi) => {
+            const data = koi.userData;
+            const angle = t * data.speed + data.phase;
+            const x = -1 + Math.cos(angle) * data.radiusX;
+            const z = -4 + Math.sin(angle) * data.radiusZ;
+            const dx = -Math.sin(angle) * data.radiusX;
+            const dz = Math.cos(angle) * data.radiusZ;
+            koi.position.set(x, 0.17 + Math.sin(angle * 2.4) * 0.018, z);
+            koi.rotation.y = Math.atan2(dx, dz);
+            data.tail.rotation.y = Math.PI / 4 + Math.sin(t * 0.01 + data.phase) * 0.48;
+          });
+          particles.forEach((p, i) => {
+            const firefly =
+                state.season === "summer" && state.weather === "sun",
+              show =
+                firefly ||
+                state.weather === "rain" ||
+                state.season === "spring" ||
+                state.season === "autumn";
+            p.visible = show;
+            if (!show) return;
+            if (firefly) {
+              p.material.color.setHex(0xffe96b);
+              p.scale.setScalar(0.065);
+              p.position.set(
+                p.userData.weatherX * 0.9,
+                0.7 + Math.sin(t * 0.002 + p.userData.phase) * 0.45,
+                p.userData.weatherZ * 0.9,
+              );
+              return;
+            }
+            p.material.color.setHex(
+              state.weather === "rain"
+                ? state.season === "winter"
+                  ? 0xffffff
+                  : 0x9bd8ee
+                : state.season === "autumn"
+                  ? 0xd68542
+                  : 0xf3bed2,
+            );
+            const winterSnow =
+              state.weather === "rain" && state.season === "winter";
+            if (winterSnow) p.scale.set(0.13, 0.13, 0.13);
+            else if (state.weather === "rain")
+              p.scale.set(0.045, p.userData.rainLength, 0.045);
+            else p.scale.set(0.12, 0.04, 0.12);
+            const fallSpeed = winterSnow
+              ? 0.0018
+              : state.weather === "rain"
+                ? 0.006
+                : 0.0015;
+            const speed =
+                state.weather === "rain"
+                  ? winterSnow
+                    ? 0.0018
+                    : p.userData.rainSpeed
+                  : fallSpeed,
+              travel = t * speed + p.userData.weatherOffset,
+              particleY = 14 - (travel % 17),
+              cycle = Math.floor(travel / 17),
+              respawnX = (rand(i, cycle + 230) - 0.5) * 5,
+              respawnZ = (rand(cycle + 250, i) - 0.5) * 4;
+            p.position.set(
+              p.userData.weatherX +
+                respawnX +
+                Math.sin(t * 0.0007 + p.userData.phase) *
+                  (state.weather === "rain" ? p.userData.drift : 1),
+              particleY,
+              p.userData.weatherZ +
+                respawnZ +
+                (state.weather === "rain"
+                  ? p.userData.drift * (14 - particleY) * 0.08
+                  : 0),
+            );
+          });
+          staticRoot.children.forEach((o, i) => {
+            if (o.userData.cloud) {
+              o.position.x += dt * 0.15 * (i % 2 ? 1 : -1);
+              if (Math.abs(o.position.x) > 42) o.position.x *= -1;
+            }
+            if (o.userData.flower)
+              o.rotation.z = Math.sin(t * 0.0015 + o.position.x) * 0.05;
+          });
+          water.material.opacity = 0.55 + Math.sin(t * 0.001) * 0.04;
+          ripples.forEach((r, i) => {
+            const s = 1 + ((t * 0.0002 + i * 0.3) % 1);
+            r.scale.set(1.5 * s, 0.8 * s, 1);
+            r.material.opacity = 0.28 * (2 - s);
+          });
+        }
+        let acc = 0;
+        function frame(t) {
+          requestAnimationFrame(frame);
+          const dt = Math.min(0.1, clock.getDelta());
+          acc += dt;
+          if (acc >= 1 && document.visibilityState === "visible") {
+            state = M.update(state, acc);
+            acc = 0;
+            const sig = state.plants
+              .map((p) => `${p.id}:${p.stage}:${p.moisture < 0.1}`)
+              .join("|");
+            if (sig !== lastPlantSig) {
+              lastPlantSig = sig;
+              rebuild();
+              if (state.plants.some((p) => p.id === selectedId))
+                inspect(selectedId);
+            }
+            if (performance.now() - lastSave > 10000) save();
+          }
+          motion(t, dt);
+          cam();
+          renderer.render(scene, camera);
+        }
+        function fail(m) {
+          document.getElementById("error-text").textContent = m;
+          document.getElementById("error").style.display = "grid";
+        }
+        try {
+          load();
+          island();
+          wildlifeSetup();
+          rebuild();
+          environment();
+          trays();
+          ui();
+          resize();
+          window.GardenDebug = {
+            snapshot: () => M.cloneState(state),
+            project: (x, y, z) => {
+              const v = new THREE.Vector3(x, y, z).project(camera);
+              return {
+                x: ((v.x + 1) * innerWidth) / 2,
+                y: ((1 - v.y) * innerHeight) / 2,
+              };
+            },
+            scene,
+            THREE,
+          };
+          requestAnimationFrame(frame);
+        } catch (e) {
+          console.error(e);
+          fail(e.message || "The garden could not be created.");
+        }
+      })();
+    </script>
+  </body>
+</html>
