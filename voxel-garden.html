@@ -180,6 +180,8 @@
         background: rgba(20, 70, 52, 0.78);
         color: white;
         font-size: 10px;
+        border: 0;
+        cursor: pointer;
       }
       .save.bad {
         background: #a3503d;
@@ -338,6 +340,45 @@
         border-radius: 20px;
         background: var(--paper);
       }
+      .modal {
+        position: absolute;
+        z-index: 10;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        padding: 18px;
+        background: rgba(18, 44, 35, 0.32);
+      }
+      .modal[hidden] { display: none; }
+      .dialog {
+        width: min(560px, 100%);
+        max-height: min(760px, calc(100dvh - 28px));
+        overflow: auto;
+        padding: 22px;
+        border-radius: 24px;
+        background: var(--paper);
+        box-shadow: 0 20px 60px rgba(16, 54, 39, 0.3);
+      }
+      .dialog h2 { margin: 0 0 5px; font: 700 26px Georgia, serif; }
+      .dialog p { margin: 7px 0 15px; color: #526d61; line-height: 1.45; font-size: 13px; }
+      .garden-list { display: grid; gap: 8px; margin: 14px 0; }
+      .garden-row, .dialog-actions { display: flex; align-items: center; gap: 9px; }
+      .garden-row { justify-content: space-between; padding: 11px 13px; border-radius: 13px; background: #fffdf4; border: 1px solid var(--line); }
+      .garden-row b { display: block; }
+      .garden-row small { color: #6a8275; }
+      .dialog button { border: 0; border-radius: 12px; padding: 10px 14px; background: var(--pine); color: white; font-weight: 800; cursor: pointer; }
+      .dialog button.secondary { background: #e8eadb; color: var(--ink); }
+      .dialog-actions { justify-content: flex-end; margin-top: 16px; }
+      .preset-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; }
+      .preset { display: block; padding: 12px; border: 2px solid var(--line); border-radius: 15px; background: #fffdf4; cursor: pointer; }
+      .preset:has(input:checked) { border-color: var(--pine); background: #e9f2df; }
+      .preset input { position: absolute; opacity: 0; }
+      .preset b, .preset span { display: block; }
+      .preset b { margin-bottom: 5px; }
+      .preset span { color: #62786c; font-size: 11px; line-height: 1.35; }
+      .name-field { display: grid; gap: 5px; margin-top: 14px; font-weight: 800; font-size: 12px; }
+      .name-field input { width: 100%; padding: 10px 11px; border: 1px solid var(--line); border-radius: 10px; font: inherit; background: white; }
+      .recovery { padding: 10px 12px; border-radius: 12px; background: #f8e1d7; color: #713d32; font-size: 12px; }
       @media (max-width: 760px) {
         .brand small {
           display: none;
@@ -372,6 +413,7 @@
         .fast {
           display: none;
         }
+        .preset-grid { grid-template-columns: 1fr; }
       }
       @media (max-width: 520px) {
         .brand {
@@ -459,6 +501,8 @@
             <span>🗑️</span><small>Delete</small></button
           ><button id="home" class="action">
             <span>🏡</span><small>Home</small></button
+          ><button id="gardens" class="action">
+            <span>🌿</span><small id="current-garden">Gardens</small></button
           ><button id="zoom-out" class="action" aria-label="Zoom out">
             <span>−</span><small>Zoom</small></button
           ><button id="zoom-in" class="action" aria-label="Zoom in">
@@ -486,7 +530,7 @@
           ><button class="env" data-weather="rain"><span>🌧️</span>Rain</button>
         </div>
       </div>
-      <div id="save" class="save">● saved</div>
+      <button id="save" class="save" type="button">● saved</button>
       <section id="card" class="card glass hidden">
         <h2 id="plant-name"></h2>
         <div id="plant-stage" class="stage"></div>
@@ -507,437 +551,382 @@
           <p id="error-text"></p>
         </div>
       </div>
+      <div id="garden-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="garden-modal-title" hidden>
+        <div class="dialog">
+          <section id="library-view">
+            <h2 id="garden-modal-title">Your gardens</h2>
+            <p>Each garden keeps its own plants, builds, season, and weather.</p>
+            <div id="garden-list" class="garden-list"></div>
+            <div class="dialog-actions"><button id="new-garden">New Garden</button><button id="close-gardens" class="secondary">Close</button></div>
+          </section>
+          <section id="create-view" hidden>
+            <h2 id="create-title">New garden</h2>
+            <p>Choose a starting world. Make it your own with plants, paths, and buildings.</p>
+            <div class="preset-grid">
+              <label class="preset"><input type="radio" name="preset" value="empty" checked /><b>🌱 Empty Grounds</b><span>A blank grass base for your own plan.</span></label>
+              <label class="preset"><input type="radio" name="preset" value="cottage" /><b>🏡 Cottage Garden</b><span>A cozy cottage, beds, flowers, trees, and a path.</span></label>
+              <label class="preset"><input type="radio" name="preset" value="meadow" /><b>🌼 Wild Meadow</b><span>Open meadow space with trees, flowers, and tufts.</span></label>
+            </div>
+            <label class="name-field">Garden name<input id="garden-name" maxlength="64" /></label>
+            <div class="dialog-actions"><button id="cancel-create" class="secondary">Cancel</button><button id="create-garden">Create Garden</button></div>
+          </section>
+          <section id="recovery-view" hidden>
+            <h2>Saving needs attention</h2>
+            <p id="recovery-message" class="recovery"></p>
+            <div class="dialog-actions"><button id="retry-save">Retry Save</button><button id="continue-session" class="secondary">Continue without saving</button></div>
+          </section>
+        </div>
+      </div>
     </div>
 
     <script id="garden-model">
       (function () {
         "use strict";
-        const VERSION = 2,
+        const VERSION = 3,
+          LEGACY_VERSION = 2,
+          LAYOUT_VERSION = 1,
           STAGE_SECONDS = 25,
           MAX_BLOCKS = 240,
-          BOUNDS = 18;
+          BOUNDS = 18,
+          LAND_Z = 15;
         const BLOCK_TYPES = Object.freeze([
-          "grass",
-          "soil",
-          "stone",
-          "wood",
-          "brick",
-          "roof",
-          "glass",
-          "water",
-          "path",
-          "flowers",
-          "fence",
+          "grass", "soil", "stone", "wood", "brick", "roof", "glass",
+          "water", "path", "flowers", "fence",
         ]);
         const TEMPLATE_TYPES = Object.freeze([
-          "raisedBed",
-          "bench",
-          "trellis",
-          "bridge",
-          "beehive",
-          "gazebo",
+          "raisedBed", "bench", "trellis", "bridge", "beehive", "gazebo",
         ]);
         const SEASONS = Object.freeze(["spring", "summer", "autumn", "winter"]),
           WEATHER = Object.freeze(["sun", "rain"]);
         const SPECIES = Object.freeze({
-          sunflower: Object.freeze({
-            name: "Sunflower",
-            emoji: "🌻",
-            needsInsect: true,
-            final: "Seeds",
-          }),
-          tomato: Object.freeze({
-            name: "Tomato",
-            emoji: "🍅",
-            selfPollinating: true,
-            final: "Fruit",
-          }),
-          strawberry: Object.freeze({
-            name: "Strawberry",
-            emoji: "🍓",
-            needsInsect: true,
-            final: "Fruit",
-          }),
-          bean: Object.freeze({
-            name: "Bean",
-            emoji: "🫘",
-            selfPollinating: true,
-            final: "Pods",
-          }),
-          carrot: Object.freeze({
-            name: "Carrot",
-            emoji: "🥕",
-            rootCrop: true,
-            final: "Root",
-          }),
-          tulip: Object.freeze({
-            name: "Tulip",
-            emoji: "🌷",
-            flowerCrop: true,
-            final: "Flower",
-          }),
+          sunflower: { name: "Sunflower", emoji: "🌻", needsInsect: true, final: "Seeds" },
+          tomato: { name: "Tomato", emoji: "🍅", selfPollinating: true, final: "Fruit" },
+          strawberry: { name: "Strawberry", emoji: "🍓", needsInsect: true, final: "Fruit" },
+          bean: { name: "Bean", emoji: "🫘", selfPollinating: true, final: "Pods" },
+          carrot: { name: "Carrot", emoji: "🥕", rootCrop: true, final: "Root" },
+          tulip: { name: "Tulip", emoji: "🌷", flowerCrop: true, final: "Flower" },
         });
         const STAGES = Object.freeze([
-          "Seed",
-          "Germination",
-          "Seedling",
-          "Growing plant",
-          "Bud",
-          "Flower",
-          "Pollinated flower",
-          "Fruit, vegetable or seeds",
+          "Seed", "Germination", "Seedling", "Growing plant", "Bud",
+          "Flower", "Pollinated flower", "Fruit, vegetable or seeds",
         ]);
-        function createState() {
+        const FOOTPRINT = Object.freeze({
+          raisedBed: [2, 1], bench: [1, 1], trellis: [1, 0], bridge: [3, 1],
+          beehive: [1, 1], gazebo: [2, 2],
+        });
+        const SHELTER_KINDS = new Set(["building", "glasshouse", "gazebo"]);
+
+        function cloneState(s) { return JSON.parse(JSON.stringify(s)); }
+        function snap(n) { return Math.round(Number(n)); }
+        function bounded(n) { return Number.isFinite(n) && Math.abs(n) <= BOUNDS; }
+        function key(x, z) { return `${x},${z}`; }
+        function cells(x, z, rx, rz) {
+          const result = [];
+          for (let dx = -rx; dx <= rx; dx++)
+            for (let dz = -rz; dz <= rz; dz++) result.push([x + dx, z + dz]);
+          return result;
+        }
+        function feature(id, kind, x, z, rx = 0, rz = rx, extra = {}) {
+          return { id, kind, x, z, footprint: [rx, rz], ...extra };
+        }
+        function layoutFeatures(layoutId) {
+          const cottage = [
+            feature("cottage-house", "building", 10, -7, 3, 2, { shape: "shed", shelter: true }),
+            feature("cottage-path", "path", 0, 0, 0, 0, { cells: cells(0, 0, 0, 8) }),
+            feature("cottage-flower-west", "flowers", -4, -5, 2, 1),
+            feature("cottage-flower-south", "flowers", -4, 0, 2, 1),
+            feature("cottage-tree-west", "tree", -13, -10, 2, 2),
+            feature("cottage-tree-east", "tree", 14, 11, 2, 2),
+          ];
+          const meadow = [
+            feature("meadow-tree-west", "tree", -14, -10, 2, 2),
+            feature("meadow-tree-north", "tree", 13, -10, 2, 2),
+            feature("meadow-tree-east", "tree", 14, 11, 2, 2),
+            feature("meadow-flowers-1", "flowers", -9, -5, 2, 1),
+            feature("meadow-flowers-2", "flowers", -5, 7, 2, 1),
+            feature("meadow-flowers-3", "flowers", 4, -8, 2, 1),
+            feature("meadow-flowers-4", "flowers", 9, 5, 2, 1),
+            feature("meadow-flowers-5", "flowers", -12, 10, 2, 1),
+            feature("meadow-flowers-6", "flowers", 11, 11, 2, 1),
+            feature("meadow-tufts", "tufts", 0, 0, 14, 12, { patches: true }),
+          ];
+          if (layoutId === "empty") return [];
+          if (layoutId === "cottage") return cottage;
+          if (layoutId === "meadow") return meadow;
+          if (layoutId === "legacy") {
+            return [
+              feature("legacy-pond", "pond", -1, -4, 6, 4, { shelter: false }),
+              feature("legacy-path", "path", 0, 0, 18, 15, { legacy: true }),
+              feature("legacy-bridge", "bridge", -1, -4, 6, 1),
+              feature("legacy-gazebo", "gazebo", -10, 7, 3, 3),
+              feature("legacy-glasshouse", "glasshouse", 10, -7, 3, 2, { shelter: true }),
+              feature("legacy-shed", "building", 12, 7, 3, 2, { shape: "shed", shelter: true }),
+              feature("legacy-pergola", "building", -11, -7, 3, 2),
+              feature("legacy-hive", "building", 14, 0, 2, 2),
+              feature("legacy-bed-west", "bed", -9, -3, 3, 2, { plantingSurfaces: cells(-9, -3, 2, 2) }),
+              feature("legacy-bed-east", "bed", 9, 3, 3, 2, { plantingSurfaces: cells(9, 3, 2, 1) }),
+              feature("legacy-bed-house", "bed", 8, -6, 4, 3, { plantingSurfaces: cells(8, -6, 4, 2) }),
+              feature("legacy-trees", "tree", 0, 0, 18, 14, { legacy: true }),
+              feature("legacy-flowers", "flowers", -11, 1, 5, 5, { legacy: true }),
+              feature("legacy-hedge", "hedge", 8, -6, 5, 5),
+            ];
+          }
+          return null;
+        }
+        const LAYOUTS = Object.freeze({ empty: true, cottage: true, meadow: true, legacy: true });
+        function createState(layoutId = "empty") {
           return {
-            version: VERSION,
-            season: "spring",
-            weather: "sun",
-            sound: false,
-            elapsed: 0,
-            nextId: 1,
-            userBlocks: [],
-            templates: [],
-            plants: [],
+            version: VERSION, layoutId, layoutVersion: LAYOUT_VERSION,
+            removedFeatureIds: [], season: "spring", weather: "sun", sound: false,
+            elapsed: 0, nextId: 1, userBlocks: [], templates: [], plants: [],
           };
         }
-        function cloneState(s) {
-          return JSON.parse(JSON.stringify(s));
+        function activationDefaults(layoutId) {
+          return layoutId === "empty"
+            ? { mode: "build", tool: "soil" }
+            : { mode: "garden", tool: "sunflower" };
         }
-        function snap(n) {
-          return Math.round(Number(n));
+        function activeFeatures(state) {
+          const all = layoutFeatures(state.layoutId) || [];
+          return all.filter((f) => !state.removedFeatureIds.includes(f.id)).map(cloneState);
         }
-        function bounded(n) {
-          return Number.isFinite(n) && Math.abs(n) <= BOUNDS;
+        function featureCells(f) {
+          if (f.cells) return f.cells;
+          return cells(f.x, f.z, f.footprint[0], f.footprint[1]);
         }
-        const FOOTPRINT = {
-          raisedBed: [2, 2],
-          bench: [2, 1],
-          trellis: [2, 1],
-          bridge: [3, 1],
-          beehive: [1, 1],
-          gazebo: [3, 3],
-        };
+        function footprintFor(type, rotation = 0) {
+          const f = FOOTPRINT[type] || [1, 1];
+          return Math.abs(rotation) % 2 ? [f[1], f[0]] : f;
+        }
         function inFootprint(t, x, z) {
-          const f = FOOTPRINT[t.type] || [1, 1];
+          const f = footprintFor(t.type, t.rotation || 0);
           return Math.abs(x - t.x) <= f[0] && Math.abs(z - t.z) <= f[1];
         }
-        function occupied(s, x, y, z) {
-          return (
-            s.userBlocks.some((b) => b.x === x && b.y === y && b.z === z) ||
-            s.templates.some((t) => inFootprint(t, x, z) && y <= t.y + 4)
-          );
+        function isLand(state, x, z) {
+          if (!bounded(x) || !bounded(z) || Math.abs(z) > LAND_Z) return false;
+          if (state.layoutId === "legacy") {
+            const edgeRand = (n) => { const v = Math.sin(n) * 43758.5453; return v - Math.floor(v); };
+            if ((Math.abs(x) > 15 && edgeRand(x * 12.9898 + z * 78.233 + 33.17) < 0.1) ||
+                (Math.abs(z) > 12 && edgeRand(x * 12.9898 + z * 78.233 + 66.34) < 0.08)) return false;
+          }
+          return true;
         }
-        function templateBlocked(s, type, x, z) {
-          const f = FOOTPRINT[type] || [1, 1];
-          if (Math.abs(x) + f[0] > BOUNDS || Math.abs(z) + f[1] > BOUNDS)
-            return true;
-          return (
-            s.userBlocks.some(
-              (b) =>
-                Math.abs(b.x - x) <= f[0] &&
-                Math.abs(b.z - z) <= f[1] &&
-                b.y <= 4,
-            ) ||
-            s.plants.some(
-              (p) => Math.abs(p.x - x) <= f[0] && Math.abs(p.z - z) <= f[1],
-            ) ||
-            s.templates.some((t) => {
-              const q = FOOTPRINT[t.type] || [1, 1];
-              return (
-                Math.abs(t.x - x) <= q[0] + f[0] &&
-                Math.abs(t.z - z) <= q[1] + f[1]
-              );
-            })
-          );
+        function featureAt(state, x, z) {
+          return activeFeatures(state).find((f) => featureCells(f).some((c) => c[0] === x && c[1] === z));
+        }
+        function solidFeatureAt(state, x, z) {
+          return activeFeatures(state).find((f) =>
+            ["building", "glasshouse", "gazebo", "tree", "pond", "bed", "bridge", "hedge"].includes(f.kind) &&
+            featureCells(f).some((c) => c[0] === x && c[1] === z));
+        }
+        function covered(state, p) {
+          return state.userBlocks.some((b) => b.x === p.x && b.z === p.z && b.y > p.y) ||
+            activeFeatures(state).some((f) => f.shelter && featureCells(f).some((c) => c[0] === p.x && c[1] === p.z)) ||
+            state.templates.some((t) => t.type === "gazebo" && inFootprint(t, p.x, p.z));
+        }
+        function soilSupport(state, x, y, z) {
+          if (state.userBlocks.some((b) => b.type === "soil" && b.x === x && b.y === y - 1 && b.z === z)) return true;
+          if (state.templates.some((t) => t.type === "raisedBed" && inFootprint(t, x, z) && t.y + 1 === y)) return true;
+          return activeFeatures(state).some((f) => f.plantingSurfaces?.some((c) => c[0] === x && c[1] === z) && y === 1);
+        }
+        function canPlace(state, a) {
+          if (!state || !a) return false;
+          const x = snap(a.x), z = snap(a.z), y = Math.max(0, snap(a.y || 0));
+          if (a.type === "placeBlock") {
+            return BLOCK_TYPES.includes(a.blockType) && isLand(state, x, z) && y <= 12 &&
+              state.userBlocks.length < MAX_BLOCKS && !state.userBlocks.some((b) => b.x === x && b.y === y && b.z === z) &&
+              !solidFeatureAt(state, x, z);
+          }
+          if (a.type === "placeTemplate") {
+            if (!TEMPLATE_TYPES.includes(a.templateType) || state.templates.length >= 40) return false;
+            const [rx, rz] = footprintFor(a.templateType, a.rotation || 0);
+            const target = { type: a.templateType, x, z, rotation: snap(a.rotation || 0) };
+            const land = cells(x, z, rx, rz).every((c) => isLand(state, c[0], c[1]));
+            const pondBridge = a.templateType === "bridge" && activeFeatures(state).some((f) => f.kind === "pond");
+            return land && cells(x, z, rx, rz).every((c) =>
+              (pondBridge && activeFeatures(state).some((f) => f.kind === "pond" && featureCells(f).some((q) => q[0] === c[0] && q[1] === c[1]))) ||
+              (!solidFeatureAt(state, c[0], c[1]) && !state.userBlocks.some((b) => b.x === c[0] && b.z === c[1] && b.y <= 4))
+            ) && !state.templates.some((t) => cells(x, z, rx, rz).some((c) => inFootprint(t, c[0], c[1])));
+          }
+          if (a.type === "plant") {
+            return !!SPECIES[a.species] && isLand(state, x, z) && state.plants.length < 100 &&
+              !state.plants.some((p) => p.x === x && p.z === z) && soilSupport(state, x, y, z);
+          }
+          return true;
+        }
+        function createPresetState(presetId) {
+          if (!LAYOUTS[presetId] || presetId === "legacy") throw new Error("Unknown garden preset");
+          const s = createState(presetId);
+          if (presetId !== "cottage") return s;
+          const addTemplate = (type, x, y, z, rotation = 0) => s.templates.push({ id: s.nextId++, type, x, y, z, rotation });
+          addTemplate("raisedBed", 5, 0, 3);
+          addTemplate("raisedBed", 11, 0, 3);
+          addTemplate("bench", -5, 0, 4);
+          addTemplate("trellis", 5, 0, 8);
+          [["sunflower", 4, 3, 4], ["tomato", 6, 3, 3], ["tulip", 10, 3, 4]].forEach((v) => {
+            s.plants.push({ id: s.nextId++, species: v[0], x: v[1], y: 1, z: v[2], stage: v[3], progress: v[3] * STAGE_SECONDS + 0.1, moisture: 0.8, pollinated: v[3] >= 6 });
+          });
+          return s;
+        }
+        function isValidLegacyState(s) {
+          return validateState(s, LEGACY_VERSION, false);
+        }
+        function validateState(s, version, v3) {
+          if (!s || s.version !== version || (v3 && (!LAYOUTS[s.layoutId] || s.layoutVersion !== LAYOUT_VERSION || !Array.isArray(s.removedFeatureIds))) ||
+            !SEASONS.includes(s.season) || !WEATHER.includes(s.weather) || typeof s.sound !== "boolean" || !Number.isFinite(s.elapsed) || s.elapsed < 0 ||
+            !Number.isInteger(s.nextId) || s.nextId < 1 || !Array.isArray(s.userBlocks) || !Array.isArray(s.templates) || !Array.isArray(s.plants) ||
+            s.userBlocks.length > MAX_BLOCKS || s.templates.length > 40 || s.plants.length > 100) return false;
+          const ids = new Set(), claim = (o) => Number.isInteger(o.id) && o.id > 0 && !ids.has(o.id) && (ids.add(o.id), true);
+          if (!s.userBlocks.every((b) => claim(b) && BLOCK_TYPES.includes(b.type) && Number.isInteger(b.x) && Number.isInteger(b.y) && Number.isInteger(b.z) && bounded(b.x) && bounded(b.z) && b.y >= 0 && b.y <= 12)) return false;
+          if (!s.templates.every((t) => claim(t) && TEMPLATE_TYPES.includes(t.type) && Number.isInteger(t.x) && Number.isInteger(t.y) && Number.isInteger(t.z) && Number.isInteger(t.rotation) && t.rotation >= -3 && t.rotation <= 3 && bounded(t.x) && bounded(t.z) && t.y >= 0 && t.y <= 12)) return false;
+          if (!s.plants.every((p) => claim(p) && SPECIES[p.species] && Number.isInteger(p.x) && Number.isInteger(p.y) && Number.isInteger(p.z) && bounded(p.x) && bounded(p.z) && p.y >= 0 && p.y <= 12 && Number.isInteger(p.stage) && p.stage >= 0 && p.stage <= 7 && Number.isFinite(p.progress) && p.progress >= 0 && Number.isFinite(p.moisture) && p.moisture >= 0 && p.moisture <= 1 && typeof p.pollinated === "boolean")) return false;
+          if (v3 && !s.removedFeatureIds.every((id) => typeof id === "string" && !!(layoutFeatures(s.layoutId) || []).find((f) => f.id === id))) return false;
+          return [...ids].every((id) => id < s.nextId);
+        }
+        function isValidState(s) { return validateState(s, VERSION, true); }
+        function migrateLegacyState(v2) {
+          if (!isValidLegacyState(v2)) return null;
+          return { ...cloneState(v2), version: VERSION, layoutId: "legacy", layoutVersion: LAYOUT_VERSION, removedFeatureIds: [] };
         }
         function reduce(state, a) {
           if (!state || !a) return { state, changed: false };
           let s, x, y, z, id;
-          if (a.type === "placeBlock") {
-            x = snap(a.x);
-            y = snap(a.y);
-            z = snap(a.z);
-            if (
-              !BLOCK_TYPES.includes(a.blockType) ||
-              !bounded(x) ||
-              !bounded(z) ||
-              !Number.isInteger(y) ||
-              y < 0 ||
-              y > 12 ||
-              state.userBlocks.length >= MAX_BLOCKS ||
-              occupied(state, x, y, z)
-            )
-              return { state, changed: false };
-            s = cloneState(state);
-            s.userBlocks.push({ id: s.nextId++, type: a.blockType, x, y, z });
+          if (a.type === "deleteFeature") {
+            if (typeof a.id !== "string" || !activeFeatures(state).some((f) => f.id === a.id)) return { state, changed: false };
+            s = cloneState(state); s.removedFeatureIds.push(a.id);
+            const f = (layoutFeatures(state.layoutId) || []).find((q) => q.id === a.id);
+            if (f?.kind === "bed") s.plants = s.plants.filter((p) => !featureCells(f).some((c) => c[0] === p.x && c[1] === p.z));
             return { state: s, changed: true };
+          }
+          if (a.type === "placeBlock") {
+            x = snap(a.x); y = snap(a.y); z = snap(a.z);
+            if (!canPlace(state, { ...a, x, y, z })) return { state, changed: false };
+            s = cloneState(state); s.userBlocks.push({ id: s.nextId++, type: a.blockType, x, y, z }); return { state: s, changed: true };
           }
           if (a.type === "placeTemplate") {
-            x = snap(a.x);
-            z = snap(a.z);
-            y = Math.max(0, snap(a.y || 0));
-            if (
-              !TEMPLATE_TYPES.includes(a.templateType) ||
-              !bounded(x) ||
-              !bounded(z) ||
-              state.templates.length >= 40 ||
-              templateBlocked(state, a.templateType, x, z)
-            )
-              return { state, changed: false };
-            s = cloneState(state);
-            s.templates.push({
-              id: s.nextId++,
-              type: a.templateType,
-              x,
-              y,
-              z,
-              rotation: snap(a.rotation || 0) % 4,
-            });
-            return { state: s, changed: true };
+            x = snap(a.x); z = snap(a.z); y = Math.max(0, snap(a.y || 0));
+            if (!canPlace(state, { ...a, x, y, z })) return { state, changed: false };
+            s = cloneState(state); s.templates.push({ id: s.nextId++, type: a.templateType, x, y, z, rotation: snap(a.rotation || 0) % 4 }); return { state: s, changed: true };
           }
           if (a.type === "deleteObject") {
-            id = Number(a.id);
-            const block = state.userBlocks.find((o) => o.id === id),
-              tpl = state.templates.find((o) => o.id === id);
-            if (
-              !Number.isInteger(id) ||
-              ![...state.userBlocks, ...state.templates, ...state.plants].some(
-                (o) => o.id === id,
-              )
-            )
-              return { state, changed: false };
-            s = cloneState(state);
-            s.userBlocks = s.userBlocks.filter((o) => o.id !== id);
-            s.templates = s.templates.filter((o) => o.id !== id);
-            s.plants = s.plants.filter(
-              (o) =>
-                o.id !== id &&
-                !(
-                  block &&
-                  block.type === "soil" &&
-                  o.x === block.x &&
-                  o.z === block.z &&
-                  o.y === block.y + 1
-                ) &&
-                !(
-                  tpl &&
-                  tpl.type === "raisedBed" &&
-                  inFootprint(tpl, o.x, o.z) &&
-                  o.y === tpl.y + 1
-                ),
-            );
+            id = Number(a.id); const block = state.userBlocks.find((o) => o.id === id), tpl = state.templates.find((o) => o.id === id);
+            if (!Number.isInteger(id) || ![...state.userBlocks, ...state.templates, ...state.plants].some((o) => o.id === id)) return { state, changed: false };
+            s = cloneState(state); s.userBlocks = s.userBlocks.filter((o) => o.id !== id); s.templates = s.templates.filter((o) => o.id !== id);
+            s.plants = s.plants.filter((o) => o.id !== id && !(block?.type === "soil" && o.x === block.x && o.z === block.z && o.y === block.y + 1) && !(tpl?.type === "raisedBed" && inFootprint(tpl, o.x, o.z) && o.y === tpl.y + 1));
             return { state: s, changed: true };
           }
           if (a.type === "plant") {
-            x = snap(a.x);
-            z = snap(a.z);
-            y = Math.max(0, snap(a.y || 0));
-            if (
-              !SPECIES[a.species] ||
-              !bounded(x) ||
-              !bounded(z) ||
-              state.plants.length >= 100 ||
-              state.plants.some((p) => p.x === x && p.z === z)
-            )
-              return { state, changed: false };
-            s = cloneState(state);
-            s.plants.push({
-              id: s.nextId++,
-              species: a.species,
-              x,
-              y,
-              z,
-              stage: 0,
-              progress: 0,
-              moisture: 0,
-              pollinated: false,
-            });
-            return { state: s, changed: true };
+            x = snap(a.x); z = snap(a.z); y = Math.max(0, snap(a.y || 0));
+            if (!canPlace(state, { ...a, x, y, z })) return { state, changed: false };
+            s = cloneState(state); s.plants.push({ id: s.nextId++, species: a.species, x, y, z, stage: 0, progress: 0, moisture: 0, pollinated: false }); return { state: s, changed: true };
           }
-          if (a.type === "waterPlant") {
-            id = Number(a.id);
-            const p = state.plants.find((q) => q.id === id);
-            if (!p || p.moisture >= 0.98) return { state, changed: false };
-            s = cloneState(state);
-            s.plants.find((q) => q.id === id).moisture = 1;
-            return { state: s, changed: true };
+          if (a.type === "waterPlant" || a.type === "pollinate") {
+            id = Number(a.id); const p = state.plants.find((q) => q.id === id); if (!p || (a.type === "waterPlant" ? p.moisture >= 0.98 : p.pollinated)) return { state, changed: false };
+            s = cloneState(state); const target = s.plants.find((q) => q.id === id); if (a.type === "waterPlant") target.moisture = 1; else target.pollinated = true; return { state: s, changed: true };
           }
-          if (a.type === "pollinate") {
-            id = Number(a.id);
-            const p = state.plants.find((q) => q.id === id);
-            if (!p || p.pollinated) return { state, changed: false };
-            s = cloneState(state);
-            s.plants.find((q) => q.id === id).pollinated = true;
-            return { state: s, changed: true };
-          }
-          if (a.type === "setSeason") {
-            if (!SEASONS.includes(a.season) || state.season === a.season)
-              return { state, changed: false };
-            s = cloneState(state);
-            s.season = a.season;
-            return { state: s, changed: true };
-          }
-          if (a.type === "setWeather") {
-            if (!WEATHER.includes(a.weather) || state.weather === a.weather)
-              return { state, changed: false };
-            s = cloneState(state);
-            s.weather = a.weather;
-            return { state: s, changed: true };
-          }
-          if (a.type === "setSound") {
-            if (typeof a.sound !== "boolean" || state.sound === a.sound)
-              return { state, changed: false };
-            s = cloneState(state);
-            s.sound = a.sound;
-            return { state: s, changed: true };
-          }
+          if (a.type === "setSeason" && SEASONS.includes(a.season) && state.season !== a.season) { s = cloneState(state); s.season = a.season; return { state: s, changed: true }; }
+          if (a.type === "setWeather" && WEATHER.includes(a.weather) && state.weather !== a.weather) { s = cloneState(state); s.weather = a.weather; return { state: s, changed: true }; }
+          if (a.type === "setSound" && typeof a.sound === "boolean" && state.sound !== a.sound) { s = cloneState(state); s.sound = a.sound; return { state: s, changed: true }; }
           return { state, changed: false };
         }
         function update(state, seconds) {
-          const dt = Math.max(0, Math.min(240, Number(seconds) || 0));
-          if (!dt) return state;
-          const s = cloneState(state);
-          s.elapsed += dt;
+          const dt = Math.max(0, Math.min(240, Number(seconds) || 0)); if (!dt) return state;
+          const s = cloneState(state); s.elapsed += dt;
           s.plants.forEach((p) => {
-            const sp = SPECIES[p.species],
-              authoredRoof =
-                (Math.abs(p.x - 10) <= 2 && Math.abs(p.z + 7) <= 2) ||
-                (Math.abs(p.x - 12) <= 2 && Math.abs(p.z - 7) <= 2) ||
-                (Math.abs(p.x + 10) <= 2 && Math.abs(p.z - 7) <= 2) ||
-                (Math.abs(p.x + 11) <= 2 && Math.abs(p.z + 7) <= 2),
-              covered =
-                authoredRoof ||
-                s.userBlocks.some(
-                  (b) => b.x === p.x && b.z === p.z && b.y > p.y,
-                ) ||
-                s.templates.some(
-                  (t) => t.type === "gazebo" && inFootprint(t, p.x, p.z),
-                );
-            if (s.weather === "rain" && !covered) p.moisture = 1;
-            else p.moisture = Math.max(0, p.moisture - dt * 0.0015);
+            const sp = SPECIES[p.species];
+            if (s.weather === "rain" && !covered(s, p)) p.moisture = 1; else p.moisture = Math.max(0, p.moisture - dt * 0.0015);
             if (s.season === "winter" || p.moisture <= 0.08) return;
-            const next = p.progress + dt;
-            let max = STAGE_SECONDS * 7;
-            if (sp.needsInsect && !p.pollinated) {
-              if (next >= STAGE_SECONDS * 6.6) p.pollinated = true;
-              else max = STAGE_SECONDS * 6 - 0.001;
-            }
+            const next = p.progress + dt; let max = STAGE_SECONDS * 7;
+            if (sp.needsInsect && !p.pollinated) { if (next >= STAGE_SECONDS * 6.6) p.pollinated = true; else max = STAGE_SECONDS * 6 - 0.001; }
             if (sp.flowerCrop) max = STAGE_SECONDS * 6 - 0.001;
-            p.progress = Math.min(max, next);
-            p.stage = Math.min(7, Math.floor(p.progress / STAGE_SECONDS));
-            if (sp.selfPollinating && p.stage >= 5) p.pollinated = true;
-            if (sp.rootCrop && p.stage >= 5) p.pollinated = true;
+            p.progress = Math.min(max, next); p.stage = Math.min(7, Math.floor(p.progress / STAGE_SECONDS));
+            if (sp.selfPollinating && p.stage >= 5) p.pollinated = true; if (sp.rootCrop && p.stage >= 5) p.pollinated = true;
           });
           return s;
         }
-        function isValidState(s) {
-          if (
-            !s ||
-            s.version !== VERSION ||
-            !SEASONS.includes(s.season) ||
-            !WEATHER.includes(s.weather) ||
-            typeof s.sound !== "boolean" ||
-            !Number.isFinite(s.elapsed) ||
-            s.elapsed < 0 ||
-            !Number.isInteger(s.nextId) ||
-            s.nextId < 1 ||
-            !Array.isArray(s.userBlocks) ||
-            !Array.isArray(s.templates) ||
-            !Array.isArray(s.plants) ||
-            s.userBlocks.length > MAX_BLOCKS ||
-            s.templates.length > 40 ||
-            s.plants.length > 100
-          )
-            return false;
-          const ids = new Set(),
-            claim = (o) =>
-              Number.isInteger(o.id) &&
-              o.id > 0 &&
-              !ids.has(o.id) &&
-              (ids.add(o.id), true);
-          if (
-            !s.userBlocks.every(
-              (b) =>
-                claim(b) &&
-                BLOCK_TYPES.includes(b.type) &&
-                Number.isInteger(b.x) &&
-                Number.isInteger(b.y) &&
-                Number.isInteger(b.z) &&
-                bounded(b.x) &&
-                bounded(b.z) &&
-                b.y >= 0 &&
-                b.y <= 12,
-            )
-          )
-            return false;
-          if (
-            !s.templates.every(
-              (t) =>
-                claim(t) &&
-                TEMPLATE_TYPES.includes(t.type) &&
-                Number.isInteger(t.x) &&
-                Number.isInteger(t.y) &&
-                Number.isInteger(t.z) &&
-                Number.isInteger(t.rotation) &&
-                t.rotation >= -3 &&
-                t.rotation <= 3 &&
-                bounded(t.x) &&
-                bounded(t.z) &&
-                t.y >= 0 &&
-                t.y <= 12,
-            )
-          )
-            return false;
-          if (
-            !s.plants.every(
-              (p) =>
-                claim(p) &&
-                SPECIES[p.species] &&
-                Number.isInteger(p.x) &&
-                Number.isInteger(p.y) &&
-                Number.isInteger(p.z) &&
-                bounded(p.x) &&
-                bounded(p.z) &&
-                p.y >= 0 &&
-                p.y <= 12 &&
-                Number.isInteger(p.stage) &&
-                p.stage >= 0 &&
-                p.stage <= 7 &&
-                Number.isFinite(p.progress) &&
-                p.progress >= 0 &&
-                Number.isFinite(p.moisture) &&
-                p.moisture >= 0 &&
-                p.moisture <= 1 &&
-                typeof p.pollinated === "boolean",
-            )
-          )
-            return false;
-          return [...ids].every((id) => id < s.nextId);
+        function loadState(raw) { try { const s = JSON.parse(raw); return isValidState(s) ? cloneState(s) : null; } catch (_) { return null; } }
+        window.GardenModel = Object.freeze({ VERSION, LEGACY_VERSION, LAYOUT_VERSION, STAGE_SECONDS, SPECIES, STAGES, BLOCK_TYPES, TEMPLATE_TYPES, SEASONS, WEATHER, FOOTPRINT, createState, createPresetState, activationDefaults, cloneState, activeFeatures, canPlace, reduce, update, isValidState, isValidLegacyState, migrateLegacyState, loadState, layoutFeatures });
+      })();
+    </script>
+    <script id="garden-storage">
+      (function () {
+        "use strict";
+        const STORAGE_KEY = "moss-marrow-gardens-v1",
+          LEGACY_KEY = "moss-marrow-3d-v2",
+          MAX_NAME = 64;
+        const M = window.GardenModel;
+        function clone(v) { return JSON.parse(JSON.stringify(v)); }
+        function emptyLibrary() { return { version: 1, activeGardenId: null, gardens: [] }; }
+        function idFor(now = Date.now()) { return `garden-${now.toString(36)}-${Math.random().toString(36).slice(2, 8)}`; }
+        function validRecord(g) {
+          return !!g && typeof g.id === "string" && /^[a-zA-Z0-9_-]{1,80}$/.test(g.id) &&
+            typeof g.name === "string" && g.name.trim().length > 0 && g.name.length <= MAX_NAME &&
+            typeof g.presetId === "string" && ["empty", "cottage", "meadow", "legacy"].includes(g.presetId) &&
+            Number.isFinite(g.createdAt) && Number.isFinite(g.updatedAt) && M.isValidState(g.state);
         }
-        function loadState(raw) {
-          try {
-            const s = JSON.parse(raw);
-            return isValidState(s) ? cloneState(s) : null;
-          } catch (_) {
-            return null;
+        function validateLibrary(library) {
+          if (!library || library.version !== 1 || !Array.isArray(library.gardens) || library.gardens.length > 100) return false;
+          const ids = new Set();
+          if (library.activeGardenId !== null && typeof library.activeGardenId !== "string") return false;
+          if (!library.gardens.every((g) => validRecord(g) && !ids.has(g.id) && (ids.add(g.id), true))) return false;
+          return library.activeGardenId === null || ids.has(library.activeGardenId);
+        }
+        function json(raw) { try { return JSON.parse(raw); } catch (_) { return null; } }
+        function result(status, extra = {}) { return { status, ...extra }; }
+        function readLibrary(storage, options = {}) {
+          let raw;
+          try { raw = storage.getItem(STORAGE_KEY); } catch (error) { return result("unavailable", { error }); }
+          if (raw !== null) {
+            const library = json(raw);
+            return validateLibrary(library) ? result("loaded", { library: clone(library), raw, migrated: false }) : result("invalid", { raw, error: new Error("Saved garden library is invalid") });
           }
+          let legacyRaw;
+          try { legacyRaw = storage.getItem(LEGACY_KEY); } catch (error) { return result("unavailable", { error }); }
+          if (legacyRaw === null) return result("absent", { library: emptyLibrary(), raw: null, migrated: false });
+          const legacy = json(legacyRaw);
+          if (!M.isValidLegacyState(legacy)) return result("invalid", { raw: legacyRaw, error: new Error("Legacy garden save is invalid") });
+          const now = Number.isFinite(options.now) ? options.now : Date.now();
+          const id = (options.idFactory || idFor)(now);
+          const candidate = { version: 1, activeGardenId: id, gardens: [{ id, name: "My Garden", presetId: "legacy", createdAt: now, updatedAt: now, state: M.migrateLegacyState(legacy) }] };
+          try { storage.setItem(STORAGE_KEY, JSON.stringify(candidate)); }
+          catch (error) { return result("unavailable", { library: emptyLibrary(), candidate, expectedRaw: null, error, migrated: false }); }
+          return result("loaded", { library: candidate, raw: JSON.stringify(candidate), migrated: true });
         }
-        window.GardenModel = Object.freeze({
-          VERSION,
-          STAGE_SECONDS,
-          SPECIES,
-          STAGES,
-          BLOCK_TYPES,
-          TEMPLATE_TYPES,
-          SEASONS,
-          WEATHER,
-          createState,
-          cloneState,
-          reduce,
-          update,
-          isValidState,
-          loadState,
-        });
+        function writeLibrary(storage, library, expectedRaw = null) {
+          if (!validateLibrary(library)) return result("invalid", { library, expectedRaw, error: new Error("Cannot save invalid garden library") });
+          let currentRaw;
+          try { currentRaw = storage.getItem(STORAGE_KEY); } catch (error) { return result("unavailable", { library, expectedRaw, error }); }
+          if (currentRaw !== expectedRaw) return result("stale", { library, expectedRaw, actualRaw: currentRaw, error: new Error("Garden library changed elsewhere") });
+          const raw = JSON.stringify(library);
+          try { storage.setItem(STORAGE_KEY, raw); return result("saved", { library: clone(library), raw }); }
+          catch (error) { return result("unavailable", { library, expectedRaw, raw, error }); }
+        }
+        function active(library) { return library.gardens.find((g) => g.id === library.activeGardenId) || null; }
+        function baseCandidate(library, latestState, now) {
+          const next = clone(library);
+          const current = active(next);
+          if (current && latestState) { current.state = clone(latestState); current.updatedAt = now; }
+          return next;
+        }
+        function createGarden(storage, library, options = {}) {
+          const now = Number.isFinite(options.now) ? options.now : Date.now();
+          const id = (options.idFactory || idFor)(now);
+          const presetId = options.presetId;
+          if (!["empty", "cottage", "meadow"].includes(presetId) || typeof options.name !== "string" || !options.name.trim() || options.name.length > MAX_NAME) return result("invalid", { library, error: new Error("Invalid new garden") });
+          const state = options.state && M.isValidState(options.state) ? options.state : M.createPresetState(presetId);
+          const candidate = baseCandidate(library, options.latestState, now);
+          candidate.activeGardenId = id;
+          candidate.gardens.push({ id, name: options.name.trim(), presetId, createdAt: now, updatedAt: now, state: clone(state) });
+          const saved = writeLibrary(storage, candidate, options.expectedRaw ?? null);
+          return saved.status === "saved" ? { ...saved, library: saved.library } : { ...saved, library, candidate, expectedRaw: options.expectedRaw ?? null };
+        }
+        function switchGarden(storage, library, id, latestState, expectedRaw = null, now = Date.now()) {
+          if (!library.gardens.some((g) => g.id === id)) return result("invalid", { library, error: new Error("Garden not found") });
+          const candidate = baseCandidate(library, latestState, now); candidate.activeGardenId = id;
+          const saved = writeLibrary(storage, candidate, expectedRaw);
+          return saved.status === "saved" ? saved : { ...saved, library, candidate, expectedRaw };
+        }
+        window.GardenStorage = Object.freeze({ STORAGE_KEY, LEGACY_KEY, MAX_NAME, emptyLibrary, validateLibrary, readLibrary, writeLibrary, createGarden, switchGarden });
       })();
     </script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
@@ -1077,129 +1066,106 @@
             (x > 4 && Math.abs(z + 6) < 0.75)
           );
         }
-        function island() {
-          const grass = [],
-            earth = [],
-            earthDark = [],
-            paths = [],
-            tufts = [];
-          for (let x = -18; x <= 18; x++)
-            for (let z = -15; z <= 15; z++) {
-              if (
-                (Math.abs(x) > 15 && rand(x, z) < 0.1) ||
-                (Math.abs(z) > 12 && rand(x, z, 2) < 0.08)
-              )
-                continue;
-              (rand(x, z, 9) > 0.72 ? earthDark : earth).push([x, -0.75, z]);
-              if (!pond(x, z)) {
-                (path(x, z) ? paths : grass).push([x, 0.02, z]);
-                if (!path(x, z) && rand(x, z, 4) > 0.73)
-                  tufts.push([
-                    x + (rand(x, z, 5) - 0.5) * 0.5,
-                    0.47,
-                    z + (rand(x, z, 6) - 0.5) * 0.5,
-                    rand(x, z, 7) * 3,
-                  ]);
-              }
-            }
-          earthBatch = batch(staticRoot, 0x765238, [0.98, 1.5, 0.98], earth);
-          batch(staticRoot, 0x68472f, [0.98, 1.5, 0.98], earthDark);
-          grassBatch = batch(
-            staticRoot,
-            colors.grass,
-            [0.98, 0.18, 0.98],
-            grass,
-          );
-          const grassAccents = [[], [], []];
-          grass.forEach((p) => {
-            const n = Math.floor(rand(p[0], p[2], 12) * 3);
-            if (rand(p[0], p[2], 13) > 0.38)
-              grassAccents[n].push([
-                p[0] + (rand(p[0], p[2], 14) - 0.5) * 0.25,
-                0.13,
-                p[2] + (rand(p[0], p[2], 15) - 0.5) * 0.25,
-              ]);
-          });
-          [0x84b75b, 0x5e9646, 0x93bd68].forEach((c, i) =>
-            batch(staticRoot, c, [0.42, 0.035, 0.42], grassAccents[i]),
-          );
-          pathBatch = batch(staticRoot, colors.path, [0.9, 0.2, 0.9], paths);
-          const edging = [];
-          paths.forEach((p, i) => {
-            if (i % 5 === 0)
-              edging.push([
-                p[0] + (i % 2 ? 0.65 : -0.65),
-                0.25,
-                p[2] + (i % 3 ? 0.55 : -0.55),
-                i,
-              ]);
-          });
-          batch(staticRoot, 0xc9b98f, [0.28, 0.25, 0.28], edging);
-          batch(staticRoot, 0x78af50, [0.08, 0.65, 0.08], tufts);
-          const gp = new THREE.Mesh(
-            new THREE.PlaneGeometry(38, 32),
-            new THREE.MeshBasicMaterial({
-              transparent: true,
-              opacity: 0,
-              side: THREE.DoubleSide,
-            }),
-          );
-          gp.rotation.x = -Math.PI / 2;
-          gp.position.y = 0.16;
-          gp.material.depthWrite = false;
-          gp.material.colorWrite = false;
-          gp.userData.kind = "ground";
-          staticRoot.add(gp);
-          groundTargets.push(gp);
-          water = new THREE.Mesh(
-            new THREE.CircleGeometry(1, 48),
-            materials.water,
-          );
-          water.scale.set(6.6, 4.6, 1);
-          water.rotation.x = -Math.PI / 2;
-          water.position.set(-1, 0.2, -4);
-          water.material.opacity = 0.68;
-          water.material.depthWrite = false;
-          water.renderOrder = 2;
-          staticRoot.add(water);
+        function markFeature(g, id) {
+          g.userData.featureId = id;
+          g.traverse((m) => { m.userData.featureId = id; });
+          return g;
+        }
+        function featureGroup(f) {
+          const g = markFeature(new THREE.Group(), f.id);
+          g.position.set(f.x, 0.2, f.z);
+          staticRoot.add(g);
+          return g;
+        }
+        function simpleTree(p, f, bloom = false) {
+          const g = featureGroup(f), scale = 0.95 + rand(f.x, f.z, 101) * 0.22;
+          add(g, 0x755036, [0.58 * scale, 4 * scale, 0.58 * scale], [0, 2 * scale, 0]);
+          for (let i = 0; i < 6; i++) {
+            const branch = add(g, 0x755036, [0.22 * scale, 2.4 * scale, 0.22 * scale], [Math.cos(i) * 0.65 * scale, (3.55 + i * 0.18) * scale, Math.sin(i) * 0.65 * scale]);
+            branch.rotation.z = (i % 2 ? 1 : -1) * 0.58; branch.rotation.y = i;
+          }
+          for (let ix = -3; ix <= 3; ix++) for (let iy = -2; iy <= 3; iy++) for (let iz = -3; iz <= 3; iz++) {
+            const d = (ix / 3.3) ** 2 + (iy / 2.7) ** 2 + (iz / 3.3) ** 2;
+            if (d > 1.18 || (d > 0.9 && rand(f.x + ix, f.z + iz, iy + 20) < 0.22)) continue;
+            const leaf = add(g, bloom ? 0xf4c8d9 : 0x548447, [0.57, 0.52, 0.57], [ix * 0.5 * scale, (4.75 + iy * 0.47) * scale, iz * 0.5 * scale]);
+            leaf.userData.leaf = true; leaf.userData.bloom = bloom; leaf.userData.shade = Math.abs(ix + iz + iy + 30) % 3;
+            leafBatches.push(leaf);
+          }
+          markFeature(g, f.id);
+        }
+        function simpleFlowers(f) {
+          const g = featureGroup(f), colorset = [0xef739d, 0xf4c75f, 0x9a79d0, 0xffffff];
+          for (let i = 0; i < 12; i++) {
+            const a = i * 2.4, r = 0.35 + (i % 3) * 0.23, x = Math.cos(a) * r, z = Math.sin(a) * r;
+            add(g, 0x4f823e, [0.09, 0.55, 0.09], [x, 0.5, z]);
+            const bloom = add(g, colorset[i % colorset.length], [0.28, 0.2, 0.28], [x, 0.92, z]);
+            bloom.userData.flower = true; flowerTargets.push(new THREE.Vector3(f.x + x, 1.1, f.z + z));
+          }
+          markFeature(g, f.id);
+        }
+        function simpleTufts(f) {
+          const g = featureGroup(f);
+          for (const flower of M.activeFeatures(state).filter((q) => q.kind === "flowers"))
+            for (let i = 0; i < 5; i++) add(g, 0x78af50, [0.08, 0.65, 0.08], [flower.x - f.x + (i - 2) * 0.8, 0.55, flower.z - f.z + (i % 2 ? 0.6 : -0.5)]);
+          markFeature(g, f.id);
+        }
+        function renderPond(f) {
+          const g = featureGroup(f);
+          water = new THREE.Mesh(new THREE.CircleGeometry(1, 48), materials.water);
+          water.scale.set(6.6, 4.6, 1); water.rotation.x = -Math.PI / 2; water.position.set(0, 0, 0); water.material.opacity = 0.68; water.material.depthWrite = false; water.renderOrder = 2; g.add(water);
           for (let r = 0; r < 3; r++) {
-            const ring = new THREE.Mesh(
-              new THREE.RingGeometry(1.2 + r * 0.7, 1.25 + r * 0.7, 32),
-              new THREE.MeshBasicMaterial({
-                color: 0xc9ffff,
-                transparent: true,
-                opacity: 0.3,
-                side: THREE.DoubleSide,
-              }),
-            );
-            ring.rotation.x = -Math.PI / 2;
-            ring.position.set(-1, 0.24, -4);
-            ring.scale.set(1.5, 0.8, 1);
-            staticRoot.add(ring);
-            ripples.push(ring);
+            const ring = new THREE.Mesh(new THREE.RingGeometry(1.2 + r * 0.7, 1.25 + r * 0.7, 32), new THREE.MeshBasicMaterial({ color: 0xc9ffff, transparent: true, opacity: 0.3, side: THREE.DoubleSide }));
+            ring.rotation.x = -Math.PI / 2; ring.position.y = 0.04; ring.scale.set(1.5, 0.8, 1); g.add(ring); ripples.push(ring);
           }
-          for (let i = 0; i < 34; i++) {
-            const a = (i / 34) * Math.PI * 2;
-            const rockX = -1 + Math.cos(a) * 6.6;
-            if (Math.abs(rockX + 1) < 1.15) continue;
-            add(
-              staticRoot,
-              i % 2 ? 0xa99874 : 0xc5b58c,
-              [0.65, 0.35, 0.65],
-              [rockX, 0.28, -4 + Math.sin(a) * 4.6],
-            );
+          for (let i = 0; i < 28; i++) { const a = (i / 28) * Math.PI * 2; add(g, i % 2 ? 0xa99874 : 0xc5b58c, [0.65, 0.35, 0.65], [Math.cos(a) * 6.6, 0.08, Math.sin(a) * 4.6]); }
+          makeFish(g);
+          for (let i = 0; i < 18; i++) add(g, 0x5c873f, [0.1, 0.85, 0.1], [Math.cos(i) * 5.7, 0.45, Math.sin(i) * 3.8]);
+          markFeature(g, f.id);
+        }
+        function renderFeature(f) {
+          if (f.kind === "pond") return renderPond(f);
+          if (f.kind === "tree") {
+            if (f.legacy) {
+              [[-16, -11], [-13, -13], [-7, -13], [1, -13], [7, -13], [15, -11], [17, -5], [17, 6], [15, 12], [9, 13], [3, 14], [-4, 13], [-11, 12], [-16, 9], [-17, 2], [-16, -5], [7, 8], [10, 9], [5, 10]].forEach((p, i) => simpleTree(null, { id: `${f.id}-${i}`, kind: "tree", x: p[0], z: p[1], footprint: [2, 2] }, i % 4 === 1));
+            } else simpleTree(null, f, f.id.includes("spring"));
+            return;
           }
-          bridge(staticRoot, -1, -4, { longCrossing: true });
-          gazebo(staticRoot, -10, 7, 0.72);
-          glasshouse(staticRoot, 10, -7);
-          shed(staticRoot, 12, 7);
-          pergola(staticRoot, -11, -7);
-          hive(staticRoot, 14, 0);
-          beds();
-          trees();
-          flowers();
+          if (f.kind === "flowers") {
+            if (f.legacy) for (let i = 0; i < 3; i++) simpleFlowers({ id: `${f.id}-${i}`, kind: "flowers", x: f.x + i * 2, z: f.z + i, footprint: [2, 1] }); else simpleFlowers(f);
+            return;
+          }
+          if (f.kind === "tufts") return simpleTufts(f);
+          const g = featureGroup(f);
+          if (f.kind === "path") {
+            const ps = f.cells || (f.legacy ? Array.from({ length: 37 * 31 }, (_, i) => [-18 + (i % 37), -15 + Math.floor(i / 37)]).filter((p) => path(p[0], p[1])) : []);
+            batch(g, colors.path, [0.9, 0.2, 0.9], ps.map((p) => [p[0] - f.x, 0, p[1] - f.z])); markFeature(g, f.id); return;
+          }
+          if (f.kind === "building") f.shape === "shed" ? shed(g, 0, 0) : pergola(g, 0, 0);
+          else if (f.kind === "glasshouse") glasshouse(g, 0, 0);
+          else if (f.kind === "gazebo") gazebo(g, 0, 0, 0.72);
+          else if (f.kind === "bridge") bridge(g, 0, 0, { longCrossing: true });
+          else if (f.kind === "hive") hive(g, 0, 0);
+          else if (f.kind === "hedge") for (let x = -4; x <= 4; x++) add(g, 0x3f763f, [0.48, 1.1, 0.48], [x, 0.55, 0]);
+          markFeature(g, f.id);
+        }
+        function baseTerrain(layoutId) {
+          const grass = [], earth = [], earthDark = [];
+          for (let x = -18; x <= 18; x++) for (let z = -15; z <= 15; z++) {
+            const legacyHole = layoutId === "legacy" && ((Math.abs(x) > 15 && rand(x, z) < 0.1) || (Math.abs(z) > 12 && rand(x, z, 2) < 0.08));
+            if (legacyHole) continue;
+            (rand(x, z, 9) > 0.72 ? earthDark : earth).push([x, -0.75, z]);
+            if (!(layoutId === "legacy" && pond(x, z))) grass.push([x, 0.02, z]);
+          }
+          earthBatch = batch(staticRoot, 0x765238, [0.98, 1.5, 0.98], earth); batch(staticRoot, 0x68472f, [0.98, 1.5, 0.98], earthDark);
+          grassBatch = batch(staticRoot, colors.grass, [0.98, 0.18, 0.98], grass);
+          const gp = new THREE.Mesh(new THREE.PlaneGeometry(38, 32), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, side: THREE.DoubleSide }));
+          gp.rotation.x = -Math.PI / 2; gp.position.y = 0.16; gp.material.depthWrite = false; gp.material.colorWrite = false; gp.userData.kind = "ground"; staticRoot.add(gp); groundTargets.push(gp);
+        }
+        function island() {
+          staticRoot.clear(); groundTargets.length = 0; flowerTargets.length = 0; ripples.length = 0; fish.length = 0; leafBatches.length = 0; water = null; pathBatch = null;
+          baseTerrain(state.layoutId);
+          M.activeFeatures(state).forEach(renderFeature);
           clouds();
-          pondHabitat();
         }
         function pondHabitat() {
           for (let i = 0; i < 22; i++) {
@@ -1221,7 +1187,7 @@
           }
           makeFish();
         }
-        function makeFish() {
+        function makeFish(parent = staticRoot) {
           const fishColors = [0xf08b35, 0xf4c64d, 0xe95c46, 0xf2e5c4, 0xd8664f];
           for (let i = 0; i < 5; i++) {
             const koi = new THREE.Group();
@@ -1240,7 +1206,7 @@
               tail,
             };
             koi.renderOrder = 1;
-            staticRoot.add(koi);
+            parent.add(koi);
             fish.push(koi);
           }
         }
@@ -1679,6 +1645,10 @@
           });
           state.plants.forEach((p) => plantRoot.add(plantVisual(p)));
         }
+        function rebuildWorld() {
+          wildRoot.clear(); particleRoot.clear(); wildlife.length = 0; particles.length = 0; birds.length = 0;
+          island(); wildlifeSetup(); rebuild();
+        }
         function wildlifeSetup() {
           for (let i = 0; i < 8; i++) {
             const g = new THREE.Group(),
@@ -1705,7 +1675,7 @@
             g.userData = {
               bee,
               phase: i * 1.7,
-              target: i % flowerTargets.length,
+              target: flowerTargets.length ? i % flowerTargets.length : 0,
               lastVisit: 0,
             };
             wildRoot.add(g);
@@ -1744,71 +1714,191 @@
             particles.push(m);
           }
         }
-        const STORE = "moss-marrow-3d-v2";
-        let state = M.createState(),
+        const STORE = GardenStorage.STORAGE_KEY,
+          LEGACY_STORE = GardenStorage.LEGACY_KEY;
+        let library = GardenStorage.emptyLibrary(),
+          storageRaw = null,
+          storageStatus = "absent",
+          pendingCandidate = null,
+          pendingExpectedRaw = null,
+          activeGardenId = null,
+          state = M.createPresetState("empty"),
           history = [],
           mode = "garden",
           tool = "sunflower",
           selectedId = null,
+          selectedFeatureId = null,
           ghost = null,
           ghostKey = "",
           lastSave = 0,
           lastPlantSig = "",
           toastTimer,
           storageOK = true;
-        function starter() {
-          let s = M.createState();
-          [
-            ["sunflower", 7, -6, 5],
-            ["tomato", 8, -5, 6],
-            ["strawberry", 10, -6, 5],
-            ["bean", 6, -7, 4],
-            ["carrot", 9, -8, 6],
-            ["tulip", -9, -3, 5],
-            ["tulip", -11, -2, 4],
-          ].forEach((v) => {
-            s = M.reduce(s, {
-              type: "plant",
-              species: v[0],
-              x: v[1],
-              z: v[2],
-            }).state;
-            const p = s.plants.at(-1);
-            p.stage = v[3];
-            p.progress = v[3] * 25 + 0.1;
-            p.moisture = 0.8;
-            p.pollinated = v[3] >= 6;
-          });
-          return s;
+        function activeGarden() { return library.gardens.find((g) => g.id === activeGardenId) || null; }
+        function syncActiveRecord() {
+          const record = activeGarden();
+          if (record) { record.state = M.cloneState(state); record.updatedAt = Date.now(); }
         }
         function load() {
-          try {
-            const raw = localStorage.getItem(STORE),
-              loaded = raw && M.loadState(raw);
-            state = loaded || starter();
-            if (!loaded) save();
-          } catch (_) {
-            state = starter();
-            storageOK = false;
-            saveMark();
+          const result = GardenStorage.readLibrary(localStorage);
+          storageStatus = result.status;
+          storageRaw = result.raw || null;
+          pendingCandidate = result.candidate || null;
+          pendingExpectedRaw = result.expectedRaw ?? null;
+          if (result.status === "loaded" && result.library.gardens.length) {
+            library = result.library;
+            activeGardenId = library.activeGardenId;
+            state = M.cloneState(activeGarden()?.state || M.createPresetState("empty"));
+          } else {
+            library = result.library || GardenStorage.emptyLibrary();
+            activeGardenId = library.activeGardenId;
+            state = M.createPresetState("empty");
           }
+          const defaults = M.activationDefaults(state.layoutId);
+          mode = defaults.mode;
+          tool = defaults.tool;
+          storageOK = result.status === "loaded" || result.status === "absent";
+          if (result.status === "invalid" || result.status === "unavailable") storageOK = false;
+          saveMark();
         }
         function save() {
-          if (!storageOK) return;
-          try {
-            localStorage.setItem(STORE, JSON.stringify(state));
-            lastSave = performance.now();
-            saveMark();
-          } catch (_) {
-            storageOK = false;
-            saveMark();
+          if (!activeGardenId || storageStatus === "session") { saveMark(); return; }
+          const candidate = M.cloneState(library);
+          const record = candidate.gardens.find((g) => g.id === activeGardenId);
+          if (!record) return;
+          record.state = M.cloneState(state); record.updatedAt = Date.now();
+          const result = GardenStorage.writeLibrary(localStorage, candidate, storageRaw);
+          if (result.status === "saved") {
+            library = result.library; storageRaw = result.raw; storageStatus = "loaded"; storageOK = true; pendingCandidate = null; pendingExpectedRaw = null; lastSave = performance.now();
+          } else {
+            storageStatus = result.status; storageOK = false; pendingCandidate = result.library || candidate; pendingExpectedRaw = result.expectedRaw ?? storageRaw;
           }
+          saveMark();
         }
         function saveMark() {
           const e = document.getElementById("save");
-          e.textContent = storageOK ? "● saved" : "● save unavailable";
+          e.textContent = storageOK ? "● saved" : "● Not saved on this device";
           e.classList.toggle("bad", !storageOK);
+          const name = activeGarden()?.name;
+          document.getElementById("current-garden").textContent = name || "Gardens";
         }
+        let worldReady = false, modalPreviousFocus = null;
+        function activateGarden(record) {
+          if (!record) return;
+          activeGardenId = record.id;
+          state = M.cloneState(record.state);
+          history = []; selectedId = null; selectedFeatureId = null;
+          const defaults = M.activationDefaults(record.state.layoutId);
+          mode = defaults.mode; tool = defaults.tool; clearGhost();
+          document.getElementById("subtray").classList.remove("open");
+          document.getElementById("card").classList.add("hidden");
+          pointers.clear(); moved = false; multi = false;
+          lastPlantSig = ""; acc = 0;
+          desired.theta = home.theta; desired.phi = home.phi; desired.zoom = home.zoom; desired.target.set(0, 0, 0);
+          if (worldReady) { rebuildWorld(); environment(); trays(); ui(); }
+          saveMark();
+        }
+        function setModalView(view) {
+          document.getElementById("library-view").hidden = view !== "library";
+          document.getElementById("create-view").hidden = view !== "create";
+          document.getElementById("recovery-view").hidden = view !== "recovery";
+          if (view === "create") {
+            const selected = document.querySelector("input[name='preset']:checked")?.value || "empty";
+            const input = document.getElementById("garden-name");
+            if (!input.value || ["Empty Grounds", "Cottage Garden", "Wild Meadow"].includes(input.value)) input.value = { empty: "Empty Grounds", cottage: "Cottage Garden", meadow: "Wild Meadow" }[selected];
+            document.querySelector("input[name='preset'][value='" + selected + "']")?.focus();
+          }
+        }
+        function openModal(view = "library") {
+          modalPreviousFocus = document.activeElement;
+          document.getElementById("garden-modal").hidden = false;
+          setModalView(view);
+          document.querySelector("#garden-modal button:not([disabled]), #garden-modal input")?.focus();
+        }
+        function closeModal() {
+          document.getElementById("garden-modal").hidden = true;
+          clearGhost();
+          if (modalPreviousFocus?.focus) modalPreviousFocus.focus();
+          acc = 0;
+        }
+        function renderLibrary() {
+          const list = document.getElementById("garden-list"); list.textContent = "";
+          if (!library.gardens.length) {
+            const empty = document.createElement("p"); empty.textContent = "No saved gardens yet."; list.appendChild(empty); return;
+          }
+          library.gardens.forEach((garden) => {
+            const row = document.createElement("div"); row.className = "garden-row";
+            const text = document.createElement("div"), title = document.createElement("b"), meta = document.createElement("small");
+            title.textContent = garden.name; meta.textContent = garden.presetId === "legacy" ? "Migrated garden" : `${garden.presetId} preset`;
+            text.append(title, meta);
+            const button = document.createElement("button"); button.textContent = garden.id === activeGardenId ? "Open (current)" : "Open"; button.disabled = garden.id === activeGardenId;
+            button.onclick = () => switchGarden(garden.id); row.append(text, button); list.appendChild(row);
+          });
+        }
+        function showRecovery(message) {
+          document.getElementById("recovery-message").textContent = message || "Saved garden data could not be read or written.";
+          openModal("recovery");
+        }
+        function switchGarden(id) {
+          if (id === activeGardenId) { closeModal(); return; }
+          if (storageStatus === "session") {
+            const target = library.gardens.find((g) => g.id === id); if (target) { syncActiveRecord(); library.activeGardenId = id; activateGarden(target); closeModal(); }
+            return;
+          }
+          const result = GardenStorage.switchGarden(localStorage, library, id, state, storageRaw);
+          if (result.status !== "saved") { pendingCandidate = result.candidate; pendingExpectedRaw = result.expectedRaw ?? storageRaw; storageStatus = result.status; storageOK = false; saveMark(); showRecovery("This garden could not be opened safely. Your current edits are still in memory."); return; }
+          library = result.library; storageRaw = result.raw; storageStatus = "loaded"; storageOK = true; activateGarden(library.gardens.find((g) => g.id === id)); closeModal();
+        }
+        function createGardenFromDialog() {
+          const presetId = document.querySelector("input[name='preset']:checked")?.value || "empty";
+          const name = document.getElementById("garden-name").value.trim() || { empty: "Empty Grounds", cottage: "Cottage Garden", meadow: "Wild Meadow" }[presetId];
+          const seed = M.createPresetState(presetId);
+          if (storageStatus === "session") {
+            syncActiveRecord();
+            const id = `session-${Date.now().toString(36)}`;
+            const candidate = M.cloneState(library); candidate.gardens.push({ id, name, presetId, createdAt: Date.now(), updatedAt: Date.now(), state: seed }); candidate.activeGardenId = id; library = candidate; activateGarden(candidate.gardens.find((g) => g.id === id)); closeModal(); return;
+          }
+          const result = GardenStorage.createGarden(localStorage, library, { presetId, name, state: seed, latestState: activeGardenId ? state : null, expectedRaw: storageRaw });
+          if (result.status !== "saved") { pendingCandidate = result.candidate; pendingExpectedRaw = result.expectedRaw ?? storageRaw; storageStatus = result.status; storageOK = false; saveMark(); showRecovery("The garden is still safe in this session, but the device save failed. Retry or continue without saving."); return; }
+          library = result.library; storageRaw = result.raw; storageStatus = "loaded"; storageOK = true; activateGarden(library.gardens.find((g) => g.id === library.activeGardenId)); closeModal();
+        }
+        document.getElementById("gardens").onclick = () => { renderLibrary(); openModal(library.gardens.length ? "library" : storageStatus === "invalid" || storageStatus === "unavailable" ? "recovery" : "create"); };
+        document.getElementById("new-garden").onclick = () => setModalView("create");
+        document.getElementById("create-garden").onclick = createGardenFromDialog;
+        document.getElementById("close-gardens").onclick = closeModal;
+        document.getElementById("cancel-create").onclick = () => setModalView("library");
+        document.querySelectorAll("input[name='preset']").forEach((input) => input.onchange = () => {
+          const name = document.getElementById("garden-name");
+          name.value = { empty: "Empty Grounds", cottage: "Cottage Garden", meadow: "Wild Meadow" }[input.value];
+        });
+        document.getElementById("retry-save").onclick = () => {
+          if (storageStatus === "session") { document.getElementById("recovery-message").textContent = "Session-only mode keeps your edits in memory. Reload after storage is available to try again."; return; }
+          if (pendingCandidate) {
+            const result = GardenStorage.writeLibrary(localStorage, pendingCandidate, pendingExpectedRaw);
+            if (result.status === "saved") {
+              library = result.library; storageRaw = result.raw; storageStatus = "loaded"; storageOK = true; pendingCandidate = null; pendingExpectedRaw = null; saveMark();
+              const target = library.gardens.find((g) => g.id === library.activeGardenId);
+              if (target) { activateGarden(target); closeModal(); } else { renderLibrary(); setModalView("create"); }
+              return;
+            }
+            document.getElementById("recovery-message").textContent = result.status === "stale" ? "The saved library changed in another tab. Reload before retrying so no edits are overwritten." : "The save is still unavailable. Your edits remain in memory and have not been discarded.";
+            return;
+          }
+          const result = GardenStorage.readLibrary(localStorage);
+          if (result.status === "loaded") { library = result.library; storageRaw = result.raw; storageStatus = "loaded"; storageOK = true; activateGarden(library.gardens.find((g) => g.id === library.activeGardenId)); closeModal(); }
+          else document.getElementById("recovery-message").textContent = "The saved data is still unavailable. It has not been overwritten.";
+        };
+        document.getElementById("continue-session").onclick = () => { storageStatus = "session"; storageOK = false; closeModal(); openModal(library.gardens.length ? "library" : "create"); };
+        document.getElementById("save").onclick = () => { if (!storageOK) showRecovery("Your edits are still in memory. Retry Save when device storage is available."); };
+        document.getElementById("garden-modal").addEventListener("keydown", (e) => {
+          if (e.key === "Escape") { e.preventDefault(); if (library.gardens.length) closeModal(); else setModalView("library"); return; }
+          if (e.key !== "Tab") return;
+          const focusable = [...document.querySelectorAll("#garden-modal button:not([disabled]), #garden-modal input")].filter((el) => !el.closest("[hidden]"));
+          if (!focusable.length) return;
+          const index = focusable.indexOf(document.activeElement);
+          const next = focusable[(index + (e.shiftKey ? -1 : 1) + focusable.length) % focusable.length];
+          e.preventDefault(); next.focus();
+        });
         function toast(t) {
           const e = document.getElementById("toast");
           e.textContent = t;
@@ -1830,9 +1920,9 @@
           history.push(M.cloneState(state));
           if (history.length > 40) history.shift();
           state = r.state;
-          selectedId = null;
+          selectedId = null; selectedFeatureId = null;
           clearGhost();
-          rebuild();
+          if (a.type === "deleteFeature") rebuildWorld(); else rebuild();
           environment();
           ui();
           save();
@@ -1842,9 +1932,9 @@
         function undo() {
           if (!history.length) return;
           state = history.pop();
-          selectedId = null;
+          selectedId = null; selectedFeatureId = null;
           clearGhost();
-          rebuild();
+          rebuildWorld();
           environment();
           ui();
           save();
@@ -1893,16 +1983,6 @@
               : msgs[p.stage];
           document.getElementById("card").classList.remove("hidden");
         }
-        function staticOccupied(x, z) {
-          return (
-            pond(x, z) ||
-            (Math.abs(x + 10) <= 3 && Math.abs(z - 7) <= 3) ||
-            (Math.abs(x - 10) <= 3 && Math.abs(z + 7) <= 2) ||
-            (Math.abs(x - 12) <= 3 && Math.abs(z - 7) <= 2) ||
-            (Math.abs(x + 11) <= 3 && Math.abs(z + 7) <= 2) ||
-            (Math.abs(x - 14) <= 2 && Math.abs(z) <= 2)
-          );
-        }
         function careForPlant(id) {
           const plant = state.plants.find((p) => p.id === id);
           if (!plant) return false;
@@ -1917,13 +1997,14 @@
           return true;
         }
         function tap(px, py) {
+          if (!document.getElementById("garden-modal").hidden) return;
           const ndc = new THREE.Vector2(
             (px / innerWidth) * 2 - 1,
             (-py / innerHeight) * 2 + 1,
           );
           raycaster.setFromCamera(ndc, camera);
           const hits = raycaster.intersectObjects(
-            [userRoot, plantRoot, ...groundTargets],
+            [staticRoot, userRoot, plantRoot, ...groundTargets],
             true,
           );
           if (!hits.length) return;
@@ -1932,6 +2013,9 @@
           if (d.kind === "plant") {
             careForPlant(d.id);
             return;
+          }
+          if (d.featureId && mode === "build" && tool === "select") {
+            selectedFeatureId = d.featureId; selectedId = null; ui(); toast("Preset scenery selected — use Delete"); return;
           }
           if (mode === "garden" && (tool === "water" || tool === "inspect")) {
             const nearby = state.plants
@@ -1949,6 +2033,7 @@
           }
           if (d.kind === "block" || d.kind === "template") {
             selectedId = d.id;
+            selectedFeatureId = null;
             ui();
             if (tool === "select") {
               toast("Selected — use Delete");
@@ -1997,18 +2082,13 @@
             z = b.z + Math.round(n.z);
           }
           const obj = M.TEMPLATE_TYPES.includes(tool);
-          if (d.kind !== "block" && staticOccupied(x, z) && tool !== "bridge") {
-            toast("Choose the open building lawn");
-            return;
-          }
           const key = `${tool}:${x}:${y}:${z}`;
           if (ghostKey === key) {
-            transaction(
-              obj
-                ? { type: "placeTemplate", templateType: tool, x, y: 0, z }
-                : { type: "placeBlock", blockType: tool, x, y, z },
-              obj ? "Garden object placed" : "Block placed",
-            );
+            const action = obj
+              ? { type: "placeTemplate", templateType: tool, x, y: 0, z }
+              : { type: "placeBlock", blockType: tool, x, y, z };
+            if (!M.canPlace(state, action)) { toast("That footprint is occupied or outside the garden"); return; }
+            transaction(action, obj ? "Garden object placed" : "Block placed");
             return;
           }
           clearGhost();
@@ -2109,7 +2189,7 @@
             .getElementById("build-mode")
             .setAttribute("aria-pressed", mode === "build");
           document.getElementById("undo").disabled = !history.length;
-          document.getElementById("delete").disabled = !selectedId;
+          document.getElementById("delete").disabled = !selectedId && !selectedFeatureId;
           document
             .getElementById("sound")
             .setAttribute("aria-pressed", state.sound);
@@ -2141,9 +2221,10 @@
           setMode("garden");
         document.getElementById("build-mode").onclick = () => setMode("build");
         document.getElementById("undo").onclick = undo;
-        document.getElementById("delete").onclick = () =>
-          selectedId &&
-          transaction({ type: "deleteObject", id: selectedId }, "Removed");
+        document.getElementById("delete").onclick = () => {
+          if (selectedFeatureId) transaction({ type: "deleteFeature", id: selectedFeatureId }, "Preset scenery removed");
+          else if (selectedId) transaction({ type: "deleteObject", id: selectedId }, "Removed");
+        };
         const home = {
           theta: 0.72,
           phi: 0.78,
@@ -2332,7 +2413,7 @@
             n,
             0.25,
           );
-          waterSound.gain.setTargetAtTime(on ? 0.035 : 0, n, 0.4);
+          waterSound.gain.setTargetAtTime(on && water ? 0.035 : 0, n, 0.4);
           buzz.gain.setTargetAtTime(
             on && state.weather === "sun" && state.season !== "winter"
               ? 0.035
@@ -2357,6 +2438,7 @@
           lastCenter,
           lastDist;
         canvas.addEventListener("pointerdown", (e) => {
+          if (!document.getElementById("garden-modal").hidden) { e.preventDefault(); return; }
           canvas.setPointerCapture(e.pointerId);
           pointers.set(e.pointerId, {
             x: e.clientX,
@@ -2517,7 +2599,7 @@
                 hives +
                 Math.floor(extraFlowers / 3),
             );
-          wildRoot.visible = active;
+          wildRoot.visible = active && (flowerTargets.length > 0 || state.plants.some((p) => p.stage === 5 && M.SPECIES[p.species].needsInsect && !p.pollinated));
           const eligible = state.plants.filter(
               (p) =>
                 p.stage === 5 &&
@@ -2535,11 +2617,12 @@
                 : null,
               target = plant
                 ? new THREE.Vector3(plant.x, plant.y + 1.1, plant.z)
-                : flowerTargets[
+                : flowerTargets.length ? flowerTargets[
                     (Math.floor(t * 0.00006) + w.userData.target) %
                       flowerTargets.length
-                  ],
-              a = t * 0.00065 * (w.userData.bee ? 1.4 : 0.9) + w.userData.phase,
+                  ] : null;
+            if (!target) { w.visible = false; return; }
+            const a = t * 0.00065 * (w.userData.bee ? 1.4 : 0.9) + w.userData.phase,
               r = plant ? 0.55 : 1.2 + (i % 3) * 0.4;
             w.position.set(
               target.x + Math.cos(a * 4) * r,
@@ -2650,7 +2733,7 @@
             if (o.userData.flower)
               o.rotation.z = Math.sin(t * 0.0015 + o.position.x) * 0.05;
           });
-          water.material.opacity = 0.55 + Math.sin(t * 0.001) * 0.04;
+          if (water) water.material.opacity = 0.55 + Math.sin(t * 0.001) * 0.04;
           ripples.forEach((r, i) => {
             const s = 1 + ((t * 0.0002 + i * 0.3) % 1);
             r.scale.set(1.5 * s, 0.8 * s, 1);
@@ -2689,6 +2772,7 @@
           island();
           wildlifeSetup();
           rebuild();
+          worldReady = true;
           environment();
           trays();
           ui();
@@ -2705,6 +2789,7 @@
             scene,
             THREE,
           };
+          if (!library.gardens.length) openModal(storageStatus === "invalid" || storageStatus === "unavailable" ? "recovery" : "create");
           requestAnimationFrame(frame);
         } catch (e) {
           console.error(e);
