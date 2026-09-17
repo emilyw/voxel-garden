@@ -729,6 +729,27 @@
           if (state.templates.some((t) => t.type === "raisedBed" && inFootprint(t, x, z) && t.y + 1 === y)) return true;
           return activeFeatures(state).some((f) => f.plantingSurfaces?.some((c) => c[0] === x && c[1] === z) && y === 1);
         }
+        function plantingTarget(state, surface, pointX, pointZ) {
+          let x = snap(pointX), z = snap(pointZ);
+          if (surface?.kind === "soilSurface") {
+            return { x, y: Math.max(0, snap(surface.plantY ?? 1)), z };
+          }
+          if (surface?.kind === "block") {
+            const block = state.userBlocks.find((b) => b.id === surface.id);
+            return block?.type === "soil"
+              ? { x: block.x, y: block.y + 1, z: block.z }
+              : null;
+          }
+          if (surface?.kind === "template") {
+            const template = state.templates.find((t) => t.id === surface.id);
+            if (template?.type !== "raisedBed") return null;
+            const [rx, rz] = footprintFor(template.type, template.rotation || 0);
+            x = Math.max(template.x - rx, Math.min(template.x + rx, x));
+            z = Math.max(template.z - rz, Math.min(template.z + rz, z));
+            return { x, y: template.y + 1, z };
+          }
+          return null;
+        }
         function canPlace(state, a) {
           if (!state || !a) return false;
           const x = snap(a.x), z = snap(a.z), y = Math.max(0, snap(a.y || 0));
@@ -845,7 +866,7 @@
           return s;
         }
         function loadState(raw) { try { const s = JSON.parse(raw); return isValidState(s) ? cloneState(s) : null; } catch (_) { return null; } }
-        window.GardenModel = Object.freeze({ VERSION, LEGACY_VERSION, LAYOUT_VERSION, STAGE_SECONDS, SPECIES, STAGES, BLOCK_TYPES, TEMPLATE_TYPES, SEASONS, WEATHER, FOOTPRINT, createState, createPresetState, activationDefaults, cloneState, activeFeatures, canPlace, reduce, update, isValidState, isValidLegacyState, migrateLegacyState, loadState, layoutFeatures });
+        window.GardenModel = Object.freeze({ VERSION, LEGACY_VERSION, LAYOUT_VERSION, STAGE_SECONDS, SPECIES, STAGES, BLOCK_TYPES, TEMPLATE_TYPES, SEASONS, WEATHER, FOOTPRINT, createState, createPresetState, activationDefaults, cloneState, activeFeatures, plantingTarget, canPlace, reduce, update, isValidState, isValidLegacyState, migrateLegacyState, loadState, layoutFeatures });
       })();
     </script>
     <script id="garden-storage">
@@ -1324,7 +1345,7 @@
                   [0.86, 0.22, 0.86],
                   [cx + x, 0.25, cz + z],
                 );
-                soil.userData = { kind: "soilSurface", plantY: 0 };
+                soil.userData = { kind: "soilSurface", plantY: 1 };
                 groundTargets.push(soil);
               }
             for (let x = -w / 2; x <= w / 2; x++)
@@ -2041,25 +2062,14 @@
             }
           }
           if (mode === "garden") {
-            const x = Math.round(hit.point.x),
-              z = Math.round(hit.point.z);
             if (M.SPECIES[tool]) {
-              let y = null;
-              if (d.kind === "soilSurface") y = d.plantY || 0;
-              if (d.kind === "block") {
-                const b = state.userBlocks.find((q) => q.id === d.id);
-                if (b && b.type === "soil") y = b.y + 1;
-              }
-              if (d.kind === "template") {
-                const t = state.templates.find((q) => q.id === d.id);
-                if (t && t.type === "raisedBed") y = t.y + 1;
-              }
-              if (y === null) {
+              const target = M.plantingTarget(state, d, hit.point.x, hit.point.z);
+              if (!target) {
                 toast("Seeds need the top of a soil bed");
                 return;
               }
               transaction(
-                { type: "plant", species: tool, x, y, z },
+                { type: "plant", species: tool, ...target },
                 "Seed planted 🌱",
               );
             }
