@@ -117,3 +117,26 @@ test("rain waters exposed plants but not plants under an active roof", () => {
   covered = { ...covered, weather: "rain" };
   assert.equal(M.update(covered, 1).plants[0].moisture, 0);
 });
+
+test("planting targets use the selected soil object instead of unstable edge coordinates", () => {
+  const M = model();
+  let state = M.createPresetState("empty");
+  state = M.reduce(state, {
+    type: "placeBlock", blockType: "soil", x: 2, y: 0, z: 3,
+  }).state;
+  state = M.reduce(state, {
+    type: "placeTemplate", templateType: "raisedBed", x: -4, y: 0, z: -3,
+  }).state;
+
+  assert.deepEqual(JSON.parse(JSON.stringify(M.plantingTarget(
+    state, { kind: "block", id: state.userBlocks[0].id }, 2.51, 3.49,
+  ))), { x: 2, y: 1, z: 3 });
+  assert.deepEqual(JSON.parse(JSON.stringify(M.plantingTarget(
+    state, { kind: "template", id: state.templates[0].id }, -1.5, -1.5,
+  ))), { x: -2, y: 1, z: -2 });
+  assert.equal(M.canPlace(state, {
+    type: "plant", species: "tomato", ...M.plantingTarget(
+      state, { kind: "block", id: state.userBlocks[0].id }, 2.51, 3.49,
+    ),
+  }), true);
+});
