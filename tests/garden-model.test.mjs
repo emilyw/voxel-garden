@@ -140,3 +140,32 @@ test("planting targets use the selected soil object instead of unstable edge coo
     ),
   }), true);
 });
+
+test("the build catalog includes the realistic scenery used by sample gardens", () => {
+  const M = model();
+  const scenery = ["tree", "hedge", "pond", "shed", "glasshouse", "pergola"];
+
+  for (const type of scenery) {
+    assert.ok(M.TEMPLATE_TYPES.includes(type), `${type} should be buildable`);
+    assert.ok(M.FOOTPRINT[type], `${type} should reserve a footprint`);
+    const placed = M.reduce(M.createPresetState("empty"), {
+      type: "placeTemplate", templateType: type, x: 0, y: 0, z: 0,
+    });
+    assert.equal(placed.changed, true, `${type} should be placeable`);
+    assert.equal(M.isValidState(placed.state), true, `${type} should survive save validation`);
+  }
+});
+
+test("large scenery reserves its full footprint", () => {
+  const M = model();
+  let state = M.reduce(M.createPresetState("empty"), {
+    type: "placeTemplate", templateType: "pond", x: 0, y: 0, z: 0,
+  }).state;
+
+  assert.equal(M.canPlace(state, {
+    type: "placeTemplate", templateType: "tree", x: 3, y: 0, z: 0,
+  }), false);
+  assert.equal(M.canPlace(state, {
+    type: "placeTemplate", templateType: "tree", x: 7, y: 0, z: 0,
+  }), true);
+});
