@@ -595,6 +595,7 @@
         ]);
         const TEMPLATE_TYPES = Object.freeze([
           "raisedBed", "bench", "trellis", "bridge", "beehive", "gazebo",
+          "tree", "hedge", "pond", "shed", "glasshouse", "pergola",
         ]);
         const SEASONS = Object.freeze(["spring", "summer", "autumn", "winter"]),
           WEATHER = Object.freeze(["sun", "rain"]);
@@ -612,9 +613,10 @@
         ]);
         const FOOTPRINT = Object.freeze({
           raisedBed: [2, 1], bench: [1, 1], trellis: [1, 0], bridge: [3, 1],
-          beehive: [1, 1], gazebo: [2, 2],
+          beehive: [1, 1], gazebo: [2, 2], tree: [2, 2], hedge: [2, 0],
+          pond: [3, 2], shed: [2, 2], glasshouse: [2, 2], pergola: [2, 1],
         });
-        const SHELTER_KINDS = new Set(["building", "glasshouse", "gazebo"]);
+        const SHELTER_TEMPLATES = new Set(["gazebo", "shed", "glasshouse", "pergola"]);
 
         function cloneState(s) { return JSON.parse(JSON.stringify(s)); }
         function snap(n) { return Math.round(Number(n)); }
@@ -722,7 +724,7 @@
         function covered(state, p) {
           return state.userBlocks.some((b) => b.x === p.x && b.z === p.z && b.y > p.y) ||
             activeFeatures(state).some((f) => f.shelter && featureCells(f).some((c) => c[0] === p.x && c[1] === p.z)) ||
-            state.templates.some((t) => t.type === "gazebo" && inFootprint(t, p.x, p.z));
+            state.templates.some((t) => SHELTER_TEMPLATES.has(t.type) && inFootprint(t, p.x, p.z));
         }
         function soilSupport(state, x, y, z) {
           if (state.userBlocks.some((b) => b.type === "soil" && b.x === x && b.y === y - 1 && b.z === z)) return true;
@@ -1557,7 +1559,58 @@
               add(g, 0xb68851, [3.2, 0.12, 0.12], [0, y, 0]);
           } else if (type === "bridge") bridge(g, 0, 0);
           else if (type === "beehive") hive(g, 0, 0);
-          else gazebo(g, 0, 0, 0.65);
+          else if (type === "gazebo") gazebo(g, 0, 0, 0.65);
+          else if (type === "shed") shed(g, 0, 0);
+          else if (type === "glasshouse") glasshouse(g, 0, 0);
+          else if (type === "pergola") pergola(g, 0, 0);
+          else if (type === "hedge") {
+            for (let x = -2; x <= 2; x += 0.5)
+              add(g, x % 1 ? 0x4b8246 : 0x3f763f, [0.52, 1.25, 0.62], [x, 0.63, 0]);
+          } else if (type === "tree") {
+            add(g, 0x755036, [0.62, 4.2, 0.62], [0, 2.1, 0]);
+            for (let ix = -2; ix <= 2; ix++)
+              for (let iy = -1; iy <= 2; iy++)
+                for (let iz = -2; iz <= 2; iz++) {
+                  if ((ix / 2.3) ** 2 + (iy / 2) ** 2 + (iz / 2.3) ** 2 > 1.15) continue;
+                  const leaf = add(g, [0x548447, 0x6f9d52, 0x44753f][Math.abs(ix + iy + iz) % 3], [0.72, 0.65, 0.72], [ix * 0.58, 4.7 + iy * 0.55, iz * 0.58]);
+                  leaf.userData.leaf = true; leaf.userData.bloom = false; leaf.userData.shade = Math.abs(ix + iy + iz) % 3;
+                }
+          } else if (type === "pond") {
+            const pondMaterial = materials.water.clone();
+            pondMaterial.depthWrite = false;
+            const pondWater = new THREE.Mesh(new THREE.CircleGeometry(1, 32), pondMaterial);
+            pondWater.rotation.x = -Math.PI / 2; pondWater.scale.set(3.1, 2.05, 1); pondWater.position.y = 0.12;
+            g.add(pondWater);
+            for (let i = 0; i < 18; i++) {
+              const a = (i / 18) * Math.PI * 2;
+              add(g, i % 2 ? 0xa99874 : 0xc5b58c, [0.48, 0.3, 0.48], [Math.cos(a) * 3.1, 0.12, Math.sin(a) * 2.05]);
+            }
+          }
+          return g;
+        }
+        function blockVisual(type) {
+          const g = new THREE.Group();
+          if (type === "path") {
+            add(g, colors.path, [0.96, 0.18, 0.96], [0, -0.39, 0], materials.path);
+          } else if (type === "water") {
+            add(g, colors.water, [0.96, 0.16, 0.96], [0, -0.4, 0], materials.water);
+          } else if (type === "flowers") {
+            add(g, 0x6f9d52, [0.92, 0.1, 0.92], [0, -0.43, 0]);
+            const flowerColors = [0xef739d, 0xf4c75f, 0x9a79d0, 0xffffff];
+            for (let i = 0; i < 5; i++) {
+              const x = ((i * 7) % 5 - 2) * 0.18, z = ((i * 3) % 5 - 2) * 0.17;
+              add(g, 0x4f823e, [0.07, 0.5 + (i % 2) * 0.12, 0.07], [x, -0.13, z]);
+              add(g, flowerColors[i % flowerColors.length], [0.22, 0.18, 0.22], [x, 0.16 + (i % 2) * 0.06, z]);
+            }
+          } else if (type === "fence") {
+            for (const x of [-0.38, 0.38]) {
+              add(g, colors.fence, [0.14, 1.15, 0.14], [x, 0.08, 0], materials.fence);
+              add(g, 0xb9874f, [0.22, 0.14, 0.22], [x, 0.72, 0]);
+            }
+            for (const y of [-0.05, 0.42]) add(g, colors.fence, [0.9, 0.12, 0.12], [0, y, 0], materials.fence);
+          } else {
+            add(g, colors[type] || colors.grass, [0.96, 0.96, 0.96], [0, 0, 0], materials[type]);
+          }
           return g;
         }
         function plantVisual(p) {
@@ -1644,15 +1697,13 @@
           plantRoot.clear();
           objectMeshes.clear();
           state.userBlocks.forEach((b) => {
-            const m = cube(
-              colors[b.type] || colors.grass,
-              [0.96, 0.96, 0.96],
-              [b.x, b.y + 0.65, b.z],
-              materials[b.type],
-            );
-            m.userData = { kind: "block", id: b.id };
-            userRoot.add(m);
-            objectMeshes.set(b.id, m);
+            const g = blockVisual(b.type);
+            g.position.set(b.x, b.y + 0.65, b.z);
+            g.traverse((m) => {
+              if (m.isMesh) m.userData = { kind: "block", id: b.id };
+            });
+            userRoot.add(g);
+            objectMeshes.set(b.id, g);
           });
           state.templates.forEach((t) => {
             const g = template(t.type);
@@ -2104,7 +2155,7 @@
           clearGhost();
           ghost = obj
             ? template(tool)
-            : cube(0xffdf60, [0.98, 0.98, 0.98], [0, 0, 0], materials.ghost);
+            : blockVisual(tool);
           ghost.traverse((m) => {
             if (m.isMesh) {
               m.material = materials.ghost;
@@ -2148,6 +2199,12 @@
             ["bridge", "🌉", "Bridge"],
             ["beehive", "🐝", "Beehive"],
             ["gazebo", "⛺", "Gazebo"],
+            ["tree", "🌳", "Tree"],
+            ["hedge", "🌿", "Hedge"],
+            ["pond", "🪷", "Pond"],
+            ["shed", "🏚️", "Shed"],
+            ["glasshouse", "🏠", "Glasshouse"],
+            ["pergola", "🪵", "Pergola"],
           ];
         function trays() {
           const list = mode === "garden" ? garden : build,
